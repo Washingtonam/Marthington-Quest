@@ -10,6 +10,9 @@
     "build": "npm run build --workspace=server && npm run build --workspace=client",
     "start": "npm run start --workspace=server"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "concurrently": "^8.0.6"
   }
