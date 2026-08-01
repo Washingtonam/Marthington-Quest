@@ -4,13 +4,14 @@ import { useEffect, useState } from 'react';
 
 export default function ApiTestPage() {
   const [message, setMessage] = useState('Loading...');
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://marthington-quest.onrender.com';
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/health`)
+    fetch(`${apiBaseUrl}/health`)
       .then((res) => res.json())
       .then((data) => setMessage(data.message))
       .catch(() => setMessage('API unreachable'));
-  }, []);
+  }, [apiBaseUrl]);
 
   return (
     <main style={{ padding: '2rem' }}>

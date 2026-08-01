@@ -1,9 +1,14 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Contestant from '../models/Contestant.js';
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.json([]);
+  }
+
   try {
     const contestants = await Contestant.find({ isApproved: true }).sort({ votes: -1, createdAt: -1 });
     res.json(contestants);
@@ -13,6 +18,10 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ message: 'Database unavailable' });
+  }
+
   try {
     const contestant = await Contestant.create(req.body);
     res.status(201).json(contestant);
@@ -22,6 +31,10 @@ router.post('/', async (req, res) => {
 });
 
 router.post('/:id/vote', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ message: 'Database unavailable' });
+  }
+
   try {
     const contestant = await Contestant.findById(req.params.id);
     if (!contestant) return res.status(404).json({ message: 'Contestant not found' });

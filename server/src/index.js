@@ -9,8 +9,26 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  'http://localhost:3000',
+  'https://marthington-quest.vercel.app',
+  'https://marthington-quest.onrender.com',
+].filter(Boolean);
 
-app.use(cors({ origin: process.env.CLIENT_URL || '*' }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -27,8 +45,12 @@ app.use('/api/contestants', contestantsRouter);
 async function startServer() {
   try {
     if (process.env.MONGODB_URI) {
-      await mongoose.connect(process.env.MONGODB_URI);
-      console.log('MongoDB connected');
+      try {
+        await mongoose.connect(process.env.MONGODB_URI);
+        console.log('MongoDB connected');
+      } catch (dbError) {
+        console.warn('MongoDB connection failed, continuing without DB:', dbError.message);
+      }
     } else {
       console.log('MONGODB_URI not set, continuing without DB connection');
     }
