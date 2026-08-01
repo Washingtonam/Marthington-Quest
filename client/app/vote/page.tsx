@@ -43,24 +43,26 @@ export default function VotePage() {
     setStatus('Recording vote...');
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/payments/vote`, {
+      // initialize a Flutterwave payment and redirect to the payment link
+      const amountValue = voteCount * Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || '100');
+      const initRes = await fetch(`${apiBaseUrl}/api/payments/flutterwave/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contestantId: selectedContestant,
-          amount: voteCount * Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || '100'),
-          votes: voteCount,
-          method: 'Flutterwave',
-          reference: `vote-${Date.now()}`,
+          amount: amountValue,
+          currency: 'NGN',
+          customer_email: 'support@marthington-quest.app',
+          meta: { contestantId: selectedContestant, votes: voteCount },
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Vote failed');
+      const initData = await initRes.json();
+      if (!initRes.ok || !initData.link) {
+        throw new Error(initData.message || 'Failed to initialize payment');
       }
 
-      setStatus('Vote recorded! Thank you for supporting your favorite contestant.');
+      // Redirect user to Flutterwave payment page
+      window.location.href = initData.link;
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

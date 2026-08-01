@@ -1,8 +1,12 @@
 import express from 'express';
 import mongoose from 'mongoose';
+import multer from 'multer';
 import Contestant from '../models/Contestant.js';
+import { uploadBufferToCloudinary } from '../utils/cloudinary.js';
 
 const router = express.Router();
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.get('/', async (req, res) => {
   if (mongoose.connection.readyState !== 1) {
@@ -27,6 +31,24 @@ router.post('/', async (req, res) => {
     res.status(201).json(contestant);
   } catch (error) {
     res.status(400).json({ message: 'Failed to create contestant', error: error.message });
+  }
+});
+
+// Upload image (multipart/form-data) and return Cloudinary URL
+router.post('/upload', upload.single('image'), async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ message: 'Database unavailable' });
+  }
+
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: 'No image file provided' });
+    }
+
+    const result = await uploadBufferToCloudinary(req.file.buffer, 'contestants');
+    res.json({ url: result.secure_url, public_id: result.public_id });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to upload image', error: error.message });
   }
 });
 
