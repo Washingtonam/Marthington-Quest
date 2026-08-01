@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/index.js",
-    "build": "echo \"No build step required\"",
-    "start": "node src/index.js"
+    "build": "node -e \"console.log('No build step required')\"",
+    "start": "node src/index.js",
+    "render:start": "node src/index.js"
   },
   "dependencies": {
     "cloudinary": "^2.0.1",
