@@ -28,6 +28,7 @@ function VotePageContent() {
   const [voteFee, setVoteFee] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [timer, setTimer] = useState<any>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
@@ -43,6 +44,7 @@ function VotePageContent() {
             const sd = await s.json();
             setVoteFee(Number(sd.voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? 100));
             setTimer(sd);
+            setCountdown(sd.voteTimerRemainingSeconds ?? null);
           }
         } catch (e) {
           // ignore
@@ -63,6 +65,27 @@ function VotePageContent() {
       setSelectedContestant(contestantId);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (!timer || typeof timer.voteTimerRemainingSeconds !== 'number') {
+      setCountdown(timer?.voteTimerRemainingSeconds ?? null);
+      return;
+    }
+
+    setCountdown(timer.voteTimerRemainingSeconds);
+    const tick = setInterval(() => {
+      setCountdown((current) => {
+        if (current === null) return null;
+        if (current <= 1) {
+          clearInterval(tick);
+          return 0;
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(tick);
+  }, [timer?.voteTimerRemainingSeconds]);
 
   const filtered = contestants.filter((c) => {
     const name = `${c.firstName} ${c.lastName}`.toLowerCase();
@@ -165,7 +188,8 @@ function VotePageContent() {
             <VoteTimerStatus
               voteTimerOpen={timer.voteTimerOpen}
               voteTimerStatus={timer.voteTimerEffectiveStatus || timer.voteTimerStatus}
-              voteTimerRemainingSeconds={timer.voteTimerRemainingSeconds}
+              voteTimerSeconds={timer.voteTimerSeconds}
+              voteTimerRemainingSeconds={countdown ?? timer.voteTimerRemainingSeconds}
               voteTimerEndsAt={timer.voteTimerEndsAt}
             />
           </div>

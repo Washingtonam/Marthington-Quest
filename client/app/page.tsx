@@ -68,6 +68,7 @@ export default function HomePage() {
           <VoteTimerStatus
             voteTimerOpen={settings.voteTimerOpen}
             voteTimerStatus={settings.voteTimerEffectiveStatus || settings.voteTimerStatus}
+            voteTimerSeconds={settings.voteTimerSeconds}
             voteTimerRemainingSeconds={settings.voteTimerRemainingSeconds}
             voteTimerEndsAt={settings.voteTimerEndsAt}
           />

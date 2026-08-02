@@ -47,6 +47,21 @@ export default function AdminPage() {
   const [timerStatusMessage, setTimerStatusMessage] = useState('');
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+  const loadSettings = async () => {
+    if (!adminToken || !adminEmail) return;
+    try {
+      const settingsRes = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+        headers: { Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
+      });
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        setSettings(settingsData);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
   const loadAdminData = async () => {
     if (!adminToken || !adminEmail) return;
 
@@ -70,18 +85,8 @@ export default function AdminPage() {
       setPending(await pendingRes.json());
       const allContestants = await allRes.json();
       setContestants(allContestants);
-      // fetch settings
-      try {
-        const sres = await fetch(`${apiBaseUrl}/api/admin/settings`, {
-          headers: { Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
-        });
-        if (sres.ok) {
-        const settingsData = await sres.json();
-        setSettings(settingsData);
-      }
-      } catch (e) {
-        // ignore
-      }
+      await loadSettings();
+
       if (!selectedContestant && allContestants.length > 0) {
         setSelectedContestant(allContestants[0]);
       }
@@ -92,6 +97,13 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadAdminData();
+    const refresh = setInterval(() => {
+      if (adminToken && adminEmail) {
+        loadSettings();
+      }
+    }, 5000);
+
+    return () => clearInterval(refresh);
   }, [adminToken, adminEmail, apiBaseUrl]);
 
   const handleApprove = async (id: string) => {
