@@ -74,7 +74,7 @@ router.patch('/contestants/:id', adminAuth, async (req, res) => {
     const contestant = await Contestant.findById(req.params.id);
     if (!contestant) return res.status(404).json({ message: 'Contestant not found' });
 
-    const allowed = ['isApproved', 'entryPaid', 'firstName', 'lastName', 'photoTitle', 'photoDescription', 'category', 'uploadAllowance', 'status'];
+    const allowed = ['isApproved', 'entryPaid', 'firstName', 'lastName', 'photoTitle', 'photoDescription', 'category', 'uploadAllowance', 'status', 'votes'];
     allowed.forEach((k) => {
       if (Object.prototype.hasOwnProperty.call(req.body, k)) {
         contestant[k] = req.body[k];

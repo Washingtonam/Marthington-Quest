@@ -42,6 +42,7 @@ export default function AdminPage() {
   const [status, setStatus] = useState('');
   const [adminToken, setAdminToken] = useState('');
   const [settings, setSettings] = useState<{ entryFee?: number; voteFee?: number } | null>(null);
+  const [voteEdit, setVoteEdit] = useState<number>(0);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   const loadAdminData = async () => {
@@ -162,6 +163,23 @@ export default function AdminPage() {
   const handleSelectContestant = (contestant: Contestant) => {
     setSelectedContestant(contestant);
     setStatus('');
+    setVoteEdit(contestant.votes || 0);
+  };
+
+  const handleUpdateVotes = async (id: string) => {
+    if (!adminToken) return setStatus('Admin token required');
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}?adminToken=${adminToken}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ votes: Number(voteEdit) }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to update votes');
+      setStatus('Votes updated');
+      await loadAdminData();
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to update votes'}`);
+    }
   };
 
   return (
@@ -282,6 +300,10 @@ export default function AdminPage() {
                   <div className="stat-card">
                     <span>Votes</span>
                     <strong>{selectedContestant.votes}</strong>
+                    <div style={{ marginTop: 8 }}>
+                      <input type="number" value={voteEdit} onChange={(e) => setVoteEdit(Number(e.target.value))} style={{ width: 120 }} />
+                      <button type="button" className="btn-primary" onClick={() => handleUpdateVotes(selectedContestant._id)} style={{ marginLeft: 8 }}>Save</button>
+                    </div>
                   </div>
                   <div className="stat-card">
                     <span>Status</span>

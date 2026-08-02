@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
+import Lightbox from '../components/Lightbox';
 import { useSearchParams } from 'next/navigation';
 
 interface Contestant {
@@ -12,6 +13,8 @@ interface Contestant {
   photoTitle: string;
   imageUrl: string;
   votes: number;
+  shareSlug?: string;
+  shareUrl?: string;
 }
 
 function VotePageContent() {
@@ -104,6 +107,8 @@ function VotePageContent() {
     }
   };
 
+  const [lightbox, setLightbox] = useState<null | { src: string; alt?: string; title?: string; shareUrl?: string }>(null);
+
   return (
     <main className="page-shell">
       <div className="page-header">
@@ -120,13 +125,16 @@ function VotePageContent() {
           <div className="muted">Each vote: ₦{voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? '100'}</div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+        <div className="masonry">
           {filtered.map((c) => (
-            <article key={c._id} className="card" style={{ cursor: 'pointer' }} onClick={() => setSelectedContestant(c._id)}>
-              <img src={c.imageUrl} alt={c.photoTitle || `${c.firstName} ${c.lastName}`} style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 12 }} />
+            <article key={c._id} className="card photo-card" style={{ cursor: 'default' }}>
+              <img className="photo-card-img" src={c.imageUrl} alt={c.photoTitle || `${c.firstName} ${c.lastName}`} onClick={() => setLightbox({ src: c.imageUrl, alt: c.photoTitle, title: c.photoTitle, shareUrl: c.shareUrl || `/entry/${c.shareSlug}` })} />
               <div style={{ paddingTop: '0.5rem' }}>
                 <strong>{c.photoTitle || `${c.firstName} ${c.lastName}`}</strong>
                 <div className="muted">{c.votes} votes</div>
+                <div style={{ marginTop: 8 }}>
+                  <a href={c.shareUrl || `/entry/${c.shareSlug}`} className="link-secondary">Open profile</a>
+                </div>
               </div>
             </article>
           ))}
@@ -165,6 +173,9 @@ function VotePageContent() {
           {status && <p className="status-message">{status}</p>}
         </div>
       </div>
+      {lightbox && (
+        <Lightbox src={lightbox.src} alt={lightbox.alt} title={lightbox.title} shareUrl={lightbox.shareUrl} onClose={() => setLightbox(null)} />
+      )}
     </main>
   );
 }

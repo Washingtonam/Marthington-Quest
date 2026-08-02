@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import VoteForm from '../VoteForm';
+import CopyShareLink from '../CopyShareLink';
 
 interface Contestant {
   _id: string;
@@ -71,34 +73,38 @@ export default async function EntryPage({ params }: { params: { slug: string } }
           <span className="pill">Payment: {paymentStatus}</span>
           <span className="pill">Approval: {approvalStatus}</span>
         </div>
-        <img src={contestant.imageUrl} alt={contestant.photoTitle || 'Contestant entry'} />
-        <div className="entry-actions">
-          <div>
-            <p>{contestant.photoDescription}</p>
-          </div>
-          <div className="stat-card">
-            <span>Current votes</span>
-            <strong>{contestant.votes}</strong>
-          </div>
-          {isPending ? (
-            <div className="info-card card">
-              <p className="muted" style={{ margin: 0 }}>
-                {contestant.entryPaid
-                  ? 'Your entry is paid and waiting for admin approval. Share this link while you wait.'
-                  : 'Your payment is being confirmed. Once payment settles, your entry will be reviewed for approval.'}
-              </p>
+        <img className="photo-card-img" src={contestant.imageUrl} alt={contestant.photoTitle || 'Contestant entry'} />
+          <div className="entry-actions">
+            <div>
+              <p>{contestant.photoDescription}</p>
             </div>
-          ) : (
-            <a href={`/vote?contestantId=${contestant._id}`} className="btn-primary">Vote for this photo</a>
-          )}
-          <div className="info-card card">
-            <p className="muted" style={{ margin: 0, wordBreak: 'break-all' }}>
-              <strong>Share link:</strong>
-              <br />
-              <a href={contestant.shareUrl} className="link-secondary">{contestant.shareUrl}</a>
-            </p>
+            <div className="stat-card">
+              <span>Current votes</span>
+              <strong>{contestant.votes}</strong>
+            </div>
+
+            {!isPending ? (
+              <div>
+                <h4>Vote for this entry</h4>
+                <VoteForm contestantId={contestant._id} initialFee={Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100)} />
+              </div>
+            ) : (
+              <div className="info-card card">
+                <p className="muted" style={{ margin: 0 }}>
+                  {contestant.entryPaid
+                    ? 'Your entry is paid and waiting for admin approval. Share this link while you wait.'
+                    : 'Your payment is being confirmed. Once payment settles, your entry will be reviewed for approval.'}
+                </p>
+              </div>
+            )}
+
+            <div className="info-card card">
+              <p className="muted" style={{ margin: 0, wordBreak: 'break-all' }}>
+                <strong>Share link:</strong>
+              </p>
+              <CopyShareLink url={contestant.shareUrl} />
+            </div>
           </div>
-        </div>
       </div>
     </main>
   );
