@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import contestantsRouter from './routes/contestants.js';
 import adminRouter from './routes/admin.js';
 import paymentsRouter from './routes/payments.js';
+import settingsRouter from './routes/settings.js';
 
 dotenv.config();
 
@@ -45,6 +46,7 @@ app.get('/', (req, res) => {
 app.use('/api/contestants', contestantsRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/settings', settingsRouter);
 
 async function startServer() {
   try {

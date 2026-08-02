@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [selectedContestant, setSelectedContestant] = useState<Contestant | null>(null);
   const [status, setStatus] = useState('');
   const [adminToken, setAdminToken] = useState('');
+  const [settings, setSettings] = useState<{ entryFee?: number; voteFee?: number } | null>(null);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   const loadAdminData = async () => {
@@ -61,6 +62,13 @@ export default function AdminPage() {
       setPending(await pendingRes.json());
       const allContestants = await allRes.json();
       setContestants(allContestants);
+      // fetch settings
+      try {
+        const sres = await fetch(`${apiBaseUrl}/api/admin/settings?adminToken=${adminToken}`);
+        if (sres.ok) setSettings(await sres.json());
+      } catch (e) {
+        // ignore
+      }
       if (!selectedContestant && allContestants.length > 0) {
         setSelectedContestant(allContestants[0]);
       }
@@ -102,6 +110,52 @@ export default function AdminPage() {
       setStatus('Contestant approved successfully');
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to approve'}`);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!adminToken || !settings) return setStatus('Admin token required');
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/admin/settings?adminToken=${adminToken}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryFee: Number(settings.entryFee || 0), voteFee: Number(settings.voteFee || 0) }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to save settings');
+      setStatus('Settings saved');
+      await loadAdminData();
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to save settings'}`);
+    }
+  };
+
+  const handleTogglePaid = async (id: string, current: boolean) => {
+    if (!adminToken) return setStatus('Admin token required');
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}?adminToken=${adminToken}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryPaid: !current }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to update payment status');
+      setStatus('Payment status updated');
+      await loadAdminData();
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to update'}`);
+    }
+  };
+
+  const handleDeleteContestant = async (id: string) => {
+    if (!adminToken) return setStatus('Admin token required');
+    if (!confirm('Delete this contestant? This action cannot be undone.')) return;
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}?adminToken=${adminToken}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error((await res.json()).message || 'Delete failed');
+      setStatus('Contestant deleted');
+      await loadAdminData();
+      setSelectedContestant(null);
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to delete'}`);
     }
   };
 
@@ -162,6 +216,23 @@ export default function AdminPage() {
       ) : (
         <div className="card info-card">
           <p>Enter the admin token to load dashboard data.</p>
+        </div>
+      )}
+
+      {settings && (
+        <div className="card form-card">
+          <h3>Platform settings</h3>
+          <label className="field">
+            Entry fee (₦)
+            <input type="number" value={settings.entryFee ?? 0} onChange={(e) => setSettings({ ...settings, entryFee: Number(e.target.value) })} />
+          </label>
+          <label className="field">
+            Vote fee (₦)
+            <input type="number" value={settings.voteFee ?? 0} onChange={(e) => setSettings({ ...settings, voteFee: Number(e.target.value) })} />
+          </label>
+          <div className="form-actions">
+            <button type="button" className="btn-primary" onClick={handleSaveSettings}>Save settings</button>
+          </div>
         </div>
       )}
 
@@ -229,6 +300,12 @@ export default function AdminPage() {
                     Approve entry
                   </button>
                 )}
+                <button type="button" className="btn-primary" onClick={() => handleTogglePaid(selectedContestant._id, selectedContestant.entryPaid)}>
+                  Mark {selectedContestant.entryPaid ? 'Unpaid' : 'Paid'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => handleDeleteContestant(selectedContestant._id)} style={{ marginLeft: 8 }}>
+                  Delete contestant
+                </button>
                 <a href={selectedContestant.shareUrl} target="_blank" rel="noreferrer" className="link-secondary">
                   Open profile
                 </a>
