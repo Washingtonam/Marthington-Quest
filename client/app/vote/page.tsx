@@ -135,8 +135,7 @@ function VotePageContent() {
     </main>
   );
 }
-    );
-  }
+
 
 export default function VotePage() {
   return (
