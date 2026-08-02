@@ -34,7 +34,6 @@ export default function VoteTimerStatus({
         <div>
           <p className="eyebrow">Voting timer</p>
           <h2>{voteTimerOpen ? 'Open for votes' : 'Voting is paused'}</h2>
-          <p className="muted">Use the admin controls to start, pause, stop, or reset the voting window.</p>
         </div>
         <span className={`timer-pill ${voteTimerOpen ? 'open' : 'closed'}`}>
           {voteTimerOpen ? 'Open' : 'Closed'}
