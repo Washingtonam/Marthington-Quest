@@ -154,13 +154,13 @@ export default function RegisterPage() {
   return (
     <main className="page-shell">
       <div className="page-header">
-        <div>
+        <div className="register-header">
           <span className="eyebrow">Marthington Baby Quest</span>
           <h1>Register a contestant</h1>
-          <p className="muted">
+          <p className="muted register-summary">
             Share your little star’s photo and story for a chance to win the title. Our registration process is fast, secure, and made for families.
           </p>
-          <p className="muted">Entry fee: ₦{entryFee ?? process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA ?? '0'}</p>
+          <p className="muted register-fee">Entry fee: ₦{entryFee ?? process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA ?? '0'}</p>
         </div>
       </div>
 
@@ -245,7 +245,7 @@ export default function RegisterPage() {
               <textarea name="bio" value={formState.bio} onChange={handleChange} rows={4} />
             </label>
 
-            <div className="form-actions">
+            <div className="form-actions register-actions">
               <button type="submit" className="btn-primary">Continue</button>
             </div>
           </form>

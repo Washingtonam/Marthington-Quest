@@ -191,6 +191,25 @@ textarea {
   gap: 1rem;
 }
 
+.register-header {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.register-summary {
+  max-width: 660px;
+}
+
+.register-fee {
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.register-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .form-card {
   max-width: 860px;
 }
@@ -537,6 +556,14 @@ button.btn-secondary:hover {
 
   .register-layout {
     grid-template-columns: 1fr;
+  }
+
+  .register-actions {
+    justify-content: stretch;
+  }
+
+  .register-actions .btn-primary {
+    width: 100%;
   }
 }
 
