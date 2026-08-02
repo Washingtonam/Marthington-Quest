@@ -155,80 +155,103 @@ export default function RegisterPage() {
     <main className="page-shell">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Contestant registration</p>
+          <span className="eyebrow">Marthington Baby Quest</span>
           <h1>Register a contestant</h1>
-          <p className="muted">Complete the form below, upload a photo, then finish payment to submit your entry.</p>
+          <p className="muted">
+            Share your little star’s photo and story for a chance to win the title. Our registration process is fast, secure, and made for families.
+          </p>
           <p className="muted">Entry fee: ₦{entryFee ?? process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA ?? '0'}</p>
         </div>
       </div>
 
-      <div className="card form-card">
-        <form className="input-grid" onSubmit={handleSubmit}>
-          <label className="field">
-            Email Address
-            <input name="email" type="email" value={formState.email} onChange={handleChange} required />
-          </label>
-
-          <label className="field">
-            Child's First Name
-            <input name="firstName" value={formState.firstName} onChange={handleChange} required />
-          </label>
-
-          <label className="field">
-            Child's Last Name
-            <input name="lastName" value={formState.lastName} onChange={handleChange} />
-          </label>
-
-          <label className="field">
-            Child's Age (eg. 5 Months, 2 Years)
-            <input name="ageLabel" placeholder="Age: 8 years maximum" value={formState.ageLabel} onChange={handleChange} />
-          </label>
-
-          <label className="field">
-            Child's Nickname
-            <input name="nickname" value={formState.nickname} onChange={handleChange} />
-          </label>
-
-          <label className="field">
-            WhatsApp Number
-            <input name="whatsapp" value={formState.whatsapp} onChange={handleChange} placeholder="e.g. +2348012345678" />
-          </label>
-
-          <label className="field">
-            Photo title
-            <input name="photoTitle" value={formState.photoTitle} onChange={handleChange} placeholder="e.g. Sunrise in the Delta" />
-          </label>
-
-          <label className="field">
-            Category
-            <select name="category" value={formState.category} onChange={handleChange}>
-              <option value="nature">Nature</option>
-              <option value="portrait">Portrait</option>
-              <option value="travel">Travel</option>
-              <option value="street">Street</option>
-              <option value="lifestyle">Lifestyle</option>
-            </select>
-          </label>
-
-          <label className="field">
-            Upload contestant photo
-            <div className="file-input-wrapper">
-              <input type="file" accept="image/*" onChange={handleFile} />
-              {preview && <img src={preview} className="preview-image" alt="preview" />}
-            </div>
-          </label>
-
-          <label className="field">
-            Additional information
-            <textarea name="bio" value={formState.bio} onChange={handleChange} rows={4} />
-          </label>
-
-          <div className="form-actions">
-            <button type="submit" className="btn-primary">Continue</button>
+      <div className="card form-card" style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(320px, 0.8fr)' }}>
+        <div>
+          <div className="card info-card" style={{ marginBottom: '1.5rem' }}>
+            <h2>How registration works</h2>
+            <ul style={{ paddingLeft: '1.2rem', margin: '1rem 0 0', color: '#475569', lineHeight: 1.8 }}>
+              <li>Upload a photo and tell us their story.</li>
+              <li>Provide contact details so you can receive updates.</li>
+              <li>Pay the entry fee or register for free if the fee is zero.</li>
+              <li>Your entry will be reviewed and approved by admin.</li>
+            </ul>
           </div>
-        </form>
 
-        {status && <p className="status-message">{status}</p>}
+          <div className="card info-card">
+            <h2>Need help?</h2>
+            <p className="muted">
+              Make sure the image is clear, the age label is accurate, and the photo title is descriptive. Once approved, your baby will be live for voting.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <form className="input-grid" onSubmit={handleSubmit}>
+            <label className="field">
+              Email Address
+              <input name="email" type="email" value={formState.email} onChange={handleChange} required />
+            </label>
+
+            <label className="field">
+              Child's First Name
+              <input name="firstName" value={formState.firstName} onChange={handleChange} required />
+            </label>
+
+            <label className="field">
+              Child's Last Name
+              <input name="lastName" value={formState.lastName} onChange={handleChange} />
+            </label>
+
+            <label className="field">
+              Child's Age (eg. 5 Months, 2 Years)
+              <input name="ageLabel" placeholder="Age: 8 years maximum" value={formState.ageLabel} onChange={handleChange} />
+            </label>
+
+            <label className="field">
+              Child's Nickname
+              <input name="nickname" value={formState.nickname} onChange={handleChange} />
+            </label>
+
+            <label className="field">
+              WhatsApp Number
+              <input name="whatsapp" value={formState.whatsapp} onChange={handleChange} placeholder="e.g. +2348012345678" />
+            </label>
+
+            <label className="field">
+              Photo title
+              <input name="photoTitle" value={formState.photoTitle} onChange={handleChange} placeholder="e.g. Sunshine Smile" />
+            </label>
+
+            <label className="field">
+              Category
+              <select name="category" value={formState.category} onChange={handleChange}>
+                <option value="nature">Nature</option>
+                <option value="portrait">Portrait</option>
+                <option value="travel">Travel</option>
+                <option value="street">Street</option>
+                <option value="lifestyle">Lifestyle</option>
+              </select>
+            </label>
+
+            <label className="field">
+              Upload contestant photo
+              <div className="file-input-wrapper">
+                <input type="file" accept="image/*" onChange={handleFile} />
+                {preview && <img src={preview} className="preview-image" alt="preview" />}
+              </div>
+            </label>
+
+            <label className="field">
+              Additional information
+              <textarea name="bio" value={formState.bio} onChange={handleChange} rows={4} />
+            </label>
+
+            <div className="form-actions">
+              <button type="submit" className="btn-primary">Continue</button>
+            </div>
+          </form>
+
+          {status && <p className="status-message">{status}</p>}
+        </div>
       </div>
     </main>
   );

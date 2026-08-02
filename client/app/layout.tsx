@@ -2,7 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Marthington Quest',
+  title: 'Marthington Baby Quest',
   description: 'A modern baby competition platform',
 };
 
@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="app-shell">
           <header className="site-header">
-            <a className="brand" href="/">Marthington Quest</a>
+            <a className="brand" href="/">Marthington Baby Quest</a>
             <nav className="nav-links">
               <a href="/register">Register</a>
               <a href="/vote">Vote</a>

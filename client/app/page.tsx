@@ -4,9 +4,9 @@ export default function HomePage() {
       <section className="hero">
         <div className="hero-copy">
           <span className="eyebrow">Competition season is here</span>
-          <h1>Meet the cutest entries and support your favorites with every vote.</h1>
+          <h1>Marthington Baby Quest brings the cutest contestants to life.</h1>
           <p>
-            Marthington Quest makes registration, voting, and management effortless. Launch a lively baby competition with compelling storytelling, secure payments, and an elegant experience for families and fans.
+            Build excitement with a joyful baby photo contest that makes registration, voting, and admin management effortless for families and fans.
           </p>
           <div className="hero-cta">
             <a className="btn-primary" href="/register">Register now</a>
@@ -17,10 +17,10 @@ export default function HomePage() {
         <aside className="hero-panel card">
           <h2>Platform highlights</h2>
           <ul className="feature-list">
-            <li>Beautiful landing page and onboarding flow</li>
-            <li>Secure entry registration with photo upload</li>
-            <li>Integrated vote checkout experience</li>
-            <li>Simple admin controls and approval workflow</li>
+            <li>Easy contestant registration with photo upload</li>
+            <li>Live voting powered by secure checkout</li>
+            <li>Admin approval, fees, and stats in one dashboard</li>
+            <li>Beautiful experience for parents, supporters, and judges</li>
           </ul>
         </aside>
       </section>
@@ -28,19 +28,19 @@ export default function HomePage() {
       <section className="cards-grid">
         <a href="/register" className="card link-card">
           <h3>Register a contestant</h3>
-          <p>Submit a child’s photo, details, and complete entry payment with ease.</p>
+          <p>Submit a baby’s photo, share their story, and complete entry with a smooth checkout.</p>
         </a>
         <a href="/vote" className="card link-card">
           <h3>Vote for entries</h3>
-          <p>Support your favorite contestants with secure voting and instant checkout.</p>
+          <p>Browse contestants, cast votes, and support the cutest pictures in the contest.</p>
         </a>
         <a href="/admin" className="card link-card">
           <h3>Admin dashboard</h3>
-          <p>Review pending entries, approve contestants, and monitor platform stats.</p>
+          <p>Approve entries, update fees, and monitor contest activity.</p>
         </a>
         <a href="/api-test" className="card link-card">
           <h3>API status</h3>
-          <p>Confirm the backend health and make sure your competition is ready to run.</p>
+          <p>Check backend connectivity and make sure everything is ready to launch.</p>
         </a>
       </section>
     </main>
