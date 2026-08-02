@@ -76,6 +76,34 @@ function VotePageContent() {
     const fee = voteFee ?? Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100);
     const amount = Number(voteCount) * Number(fee);
 
+    if (amount === 0) {
+      setStatus('Recording free vote...');
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/payments/vote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contestantId: selectedContestant,
+            amount: 0,
+            votes: Number(voteCount),
+            method: 'free',
+            reference: `free_${Date.now()}`,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to record free vote');
+        }
+
+        setStatus('Vote recorded successfully. Thank you!');
+        setVoteCount(1);
+      } catch (err) {
+        setStatus(`Voting failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      }
+      return;
+    }
+
     setStatus('Initializing payment...');
 
     try {

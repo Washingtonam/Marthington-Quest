@@ -34,8 +34,18 @@ async function fetchEntry(slug: string): Promise<Contestant | null> {
   return resp.json();
 }
 
+async function fetchSettings(): Promise<{ entryFee: number; voteFee: number }> {
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const resp = await fetch(`${apiBaseUrl}/api/settings`, { cache: 'no-store' });
+  if (!resp.ok) {
+    return { entryFee: 0, voteFee: Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100) };
+  }
+  return resp.json();
+}
+
 export default async function EntryPage({ params }: { params: { slug: string } }) {
   const contestant = await fetchEntry(params.slug);
+  const settings = await fetchSettings();
 
   if (!contestant) {
     return (
@@ -56,6 +66,8 @@ export default async function EntryPage({ params }: { params: { slug: string } }
   const approvalStatus = contestant.isApproved ? 'Approved' : 'Awaiting approval';
   const statusLabel = isLive ? 'Live entry' : !contestant.entryPaid ? 'Payment pending' : 'Awaiting approval';
   const isPending = !isLive;
+
+  const voteFee = settings.voteFee ?? Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100);
 
   return (
     <main className="page-shell">
@@ -86,7 +98,7 @@ export default async function EntryPage({ params }: { params: { slug: string } }
             {!isPending ? (
               <div id="vote-form">
                 <h4>Vote for this entry</h4>
-                <VoteForm contestantId={contestant._id} initialFee={Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100)} />
+                <VoteForm contestantId={contestant._id} initialFee={voteFee} />
               </div>
             ) : (
               <div className="info-card card">

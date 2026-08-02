@@ -8,19 +8,31 @@ const router = express.Router();
 router.post('/entry', async (req, res) => {
   const { contestantId, amount, method, reference } = req.body;
 
-  if (!amount || !method) {
-    return res.status(400).json({ message: 'amount and method are required' });
+  if (typeof amount !== 'number' || !method || !contestantId) {
+    return res.status(400).json({ message: 'contestantId, amount and method are required' });
   }
 
   try {
-    const transaction = await Transaction.create({
+    const transactionData = {
       type: 'entry',
       contestantId,
       amount,
       method,
-      status: 'pending',
+      status: method === 'free' ? 'completed' : 'pending',
       metadata: { reference },
-    });
+    };
+
+    const transaction = await Transaction.create(transactionData);
+
+    if (method === 'free') {
+      await Contestant.findByIdAndUpdate(contestantId, {
+        $set: {
+          entryPaid: true,
+          status: 'paid',
+          entryTransactionRef: reference,
+        },
+      });
+    }
 
     res.status(201).json({ message: 'Entry payment recorded', transaction });
   } catch (error) {

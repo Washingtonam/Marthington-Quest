@@ -13,6 +13,33 @@ export default function VoteForm({ contestantId, initialFee }: { contestantId: s
     if (!email) return setStatus('Enter your email');
     const fee = initialFee ?? Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100);
     const amount = Number(count) * fee;
+
+    if (amount === 0) {
+      setStatus('Recording free vote...');
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/payments/vote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contestantId,
+            amount: 0,
+            votes: Number(count),
+            method: 'free',
+            reference: `free_${Date.now()}`,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to record vote');
+
+        setStatus('Vote recorded successfully. Thank you!');
+        setCount(1);
+      } catch (err) {
+        setStatus(`Error: ${err instanceof Error ? err.message : 'Unknown'}`);
+      }
+      return;
+    }
+
     setStatus('Initializing payment...');
 
     try {

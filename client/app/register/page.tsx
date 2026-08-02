@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function RegisterPage() {
   const [formState, setFormState] = useState({
@@ -17,6 +17,7 @@ export default function RegisterPage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState('');
+  const [entryFee, setEntryFee] = useState<number | null>(null);
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -37,6 +38,21 @@ export default function RegisterPage() {
       setPreview(null);
     }
   };
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/settings`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setEntryFee(Number(data.entryFee ?? 0));
+      } catch {
+        // ignore
+      }
+    }
+
+    loadSettings();
+  }, [apiBaseUrl]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -87,12 +103,35 @@ export default function RegisterPage() {
       }
 
       const contestant = await createRes.json();
-      const entryAmount = Number(process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA || '2000');
+      const effectiveEntryFee = entryFee ?? Number(process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA || '0');
+
+      if (effectiveEntryFee === 0) {
+        const freeRes = await fetch(`${apiBaseUrl}/api/payments/entry`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contestantId: contestant._id,
+            amount: 0,
+            method: 'free',
+            reference: `free_${Date.now()}`,
+          }),
+        });
+
+        const freeData = await freeRes.json();
+        if (!freeRes.ok) {
+          throw new Error(freeData.message || 'Free entry registration failed');
+        }
+
+        setStatus('Registration complete — no payment required. Redirecting to profile...');
+        window.location.href = contestant.shareUrl;
+        return;
+      }
+
       const initRes = await fetch(`${apiBaseUrl}/api/payments/flutterwave/initialize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: entryAmount,
+          amount: effectiveEntryFee,
           currency: 'NGN',
           customer_email: formState.email,
           payment_type: 'entry',
@@ -119,6 +158,7 @@ export default function RegisterPage() {
           <p className="eyebrow">Contestant registration</p>
           <h1>Register a contestant</h1>
           <p className="muted">Complete the form below, upload a photo, then finish payment to submit your entry.</p>
+          <p className="muted">Entry fee: ₦{entryFee ?? process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA ?? '0'}</p>
         </div>
       </div>
 
