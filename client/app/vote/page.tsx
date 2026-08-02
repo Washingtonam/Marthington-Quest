@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 interface Contestant {
@@ -14,7 +14,7 @@ interface Contestant {
   votes: number;
 }
 
-export default function VotePage() {
+function VotePageContent() {
   const searchParams = useSearchParams();
   const [contestants, setContestants] = useState<Contestant[]>([]);
   const [selectedContestant, setSelectedContestant] = useState('');
@@ -129,5 +129,13 @@ export default function VotePage() {
 
       {status && <p>{status}</p>}
     </main>
+  );
+}
+
+export default function VotePage() {
+  return (
+    <Suspense fallback={<main style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}><p>Loading vote page…</p></main>}>
+      <VotePageContent />
+    </Suspense>
   );
 }
