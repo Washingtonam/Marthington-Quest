@@ -163,36 +163,87 @@ router.post('/flutterwave/webhook', express.raw({ type: '*/*' }), async (req, re
       return res.status(400).json({ message: 'Missing tx_ref' });
     }
 
-    const tx = await Transaction.findOne({ 'metadata.tx_ref': tx_ref });
-    if (!tx) {
-      return res.status(404).json({ message: 'Transaction not found' });
+    // Only process successful charge events
+    const successful = status === 'successful' || status === 'charge.completed' || payload?.data?.status === 'successful';
+    if (!successful) {
+      return res.json({ received: true, message: 'Event not a successful charge' });
     }
 
-    if (status === 'successful' || status === 'charge.completed' || payload?.data?.status === 'successful') {
-      tx.status = 'completed';
-      await tx.save();
+    const meta = payload?.data?.meta || {};
+    const amountPaid = payload?.data?.amount || 0;
 
-      if (tx.type === 'entry' && tx.metadata?.contestantId) {
-        const contestant = await Contestant.findById(tx.metadata.contestantId);
-        if (contestant) {
-          contestant.entryPaid = true;
-          contestant.entryTransactionRef = tx_ref;
-          contestant.uploadAllowance = tx.metadata?.tier === 'premium' ? 3 : 1;
-          contestant.status = 'paid';
-          await contestant.save();
+    // Attempt to atomically mark the transaction as completed if it exists and is not already completed.
+    // This prevents race conditions where multiple webhook deliveries try to process the same tx_ref.
+    try {
+      // Try to update an existing pending transaction to completed
+      const updateResult = await Transaction.updateOne(
+        { 'metadata.tx_ref': tx_ref, status: { $ne: 'completed' } },
+        { $set: { status: 'completed', amount: Number(amountPaid), rawResponse: payload.data } }
+      );
+
+      let txDoc = await Transaction.findOne({ 'metadata.tx_ref': tx_ref });
+
+      if (updateResult.matchedCount === 0) {
+        // No pending transaction was matched. Possible reasons:
+        // - transaction doesn't exist yet
+        // - transaction already completed
+        if (txDoc && txDoc.status === 'completed') {
+          return res.status(200).json({ status: 'already processed' });
+        }
+
+        // Create a completed transaction record if none exists
+        if (!txDoc) {
+          const inferredType = txDoc?.type || meta.payment_type || meta.type || payload?.data?.payment_type || 'vote';
+          txDoc = await Transaction.create({
+            type: inferredType,
+            contestantId: meta.contestantId || null,
+            amount: Number(amountPaid),
+            method: 'flutterwave',
+            status: 'completed',
+            metadata: { tx_ref, ...meta },
+          });
         }
       }
 
-      if (tx.type === 'vote' && tx.metadata?.contestantId) {
-        const contestant = await Contestant.findById(tx.metadata.contestantId);
-        if (contestant) {
-          contestant.votes += Number(tx.metadata?.votes || 1);
-          await contestant.save();
+      // At this point txDoc exists and has status 'completed'
+      if (!txDoc) {
+        // Defensive: fetch again
+        txDoc = await Transaction.findOne({ 'metadata.tx_ref': tx_ref });
+      }
+
+      // Idempotent side-effects: only perform changes if we transitioned the txn in this run
+      // If updateResult.matchedCount === 1 or we just created txDoc, proceed; otherwise skip.
+      const shouldApplySideEffects = updateResult.matchedCount === 1 || (txDoc && txDoc.createdAt && (new Date() - new Date(txDoc.createdAt) < 5000));
+
+      if (shouldApplySideEffects) {
+        const paymentType = txDoc.type || meta.payment_type || meta.type || 'vote';
+
+        if (paymentType === 'vote' && (txDoc.contestantId || meta.contestantId)) {
+          const contestantId = txDoc.contestantId || meta.contestantId;
+          const votesToAdd = Number(txDoc.metadata?.votes || meta.votes || meta.voteCount || 1);
+
+          // Atomic increment to avoid race conditions
+          await Contestant.findByIdAndUpdate(contestantId, { $inc: { votes: votesToAdd } });
+        }
+
+        if (paymentType === 'entry' && (txDoc.contestantId || meta.contestantId)) {
+          const contestantId = txDoc.contestantId || meta.contestantId;
+          await Contestant.findByIdAndUpdate(contestantId, {
+            $set: {
+              entryPaid: true,
+              entryTransactionRef: tx_ref,
+              uploadAllowance: meta?.tier === 'premium' ? 3 : 1,
+              status: 'paid',
+            },
+          });
         }
       }
-    }
 
-    res.json({ received: true });
+      return res.status(200).json({ status: 'success' });
+    } catch (err) {
+      console.error('Webhook processing error:', err);
+      return res.status(500).json({ error: 'Internal webhook processing error' });
+    }
   } catch (error) {
     res.status(500).json({ message: 'Webhook handling failed', error: error.message });
   }
