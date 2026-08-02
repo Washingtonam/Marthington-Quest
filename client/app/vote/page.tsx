@@ -68,7 +68,40 @@ function VotePageContent() {
   const handleVote = async (e: any) => {
     e.preventDefault();
     if (!selectedContestant) return setStatus('Please select a contestant');
-    setStatus('Payment flow not yet implemented');
+    if (!supporterEmail) return setStatus('Please enter your email to continue');
+
+    const fee = voteFee ?? Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100);
+    const amount = Number(voteCount) * Number(fee);
+
+    setStatus('Initializing payment...');
+
+    try {
+      const payload = {
+        amount,
+        currency: 'NGN',
+        customer_email: supporterEmail,
+        payment_type: 'vote',
+        meta: { contestantId: selectedContestant, votes: Number(voteCount) },
+      };
+
+      const initRes = await fetch(`${apiBaseUrl}/api/payments/flutterwave/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const initData = await initRes.json();
+      if (!initRes.ok) {
+        throw new Error(initData.message || 'Failed to initialize payment');
+      }
+
+      if (!initData.link) throw new Error('Payment link not returned');
+
+      setStatus('Redirecting to payment...');
+      window.location.href = initData.link;
+    } catch (err) {
+      setStatus(`Payment initialization failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
   };
 
   return (
