@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import SupportAssistant from './components/SupportAssistant';
 import VoteTimerStatus from './components/VoteTimerStatus';
 
 export default function HomePage() {
@@ -85,6 +86,8 @@ export default function HomePage() {
           <p>Support your favorites and help them climb the leaderboard.</p>
         </a>
       </section>
+
+      <SupportAssistant />
     </main>
   );
 }

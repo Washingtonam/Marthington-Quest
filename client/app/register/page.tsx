@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import SupportAssistant from '../components/SupportAssistant';
 
 export default function RegisterPage() {
   const [formState, setFormState] = useState({
@@ -253,6 +254,8 @@ export default function RegisterPage() {
           {status && <p className="status-message">{status}</p>}
         </div>
       </div>
+
+      <SupportAssistant />
     </main>
   );
 }
