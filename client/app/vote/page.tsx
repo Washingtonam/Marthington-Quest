@@ -135,49 +135,8 @@ function VotePageContent() {
     </main>
   );
 }
-              type="email"
-              value={supporterEmail}
-              onChange={(event) => setSupporterEmail(event.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </label>
-
-          <label className="field">
-            Select contestant
-            <select value={selectedContestant} onChange={(event) => setSelectedContestant(event.target.value)} required>
-              <option value="">Select...</option>
-              {contestants.map((contestant) => (
-                <option key={contestant._id} value={contestant._id}>
-                  {contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`} ({contestant.votes} votes)
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            Number of votes
-            <input
-              type="number"
-              min="1"
-              value={voteCount}
-              onChange={(event) => setVoteCount(Number(event.target.value))}
-              required
-            />
-          </label>
-
-          <p className="muted">Each vote costs ₦{process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || '100'}.</p>
-
-          <div className="form-actions">
-            <button type="submit" className="btn-primary">Pay and vote</button>
-          </div>
-        </form>
-
-        {status && <p className="status-message">{status}</p>}
-      </div>
-    </main>
-  );
-}
+    );
+  }
 
 export default function VotePage() {
   return (
