@@ -2,7 +2,13 @@
 
 import { useState } from 'react';
 
-export default function CopyShareLink({ url }: { url: string }) {
+export default function CopyShareLink({
+  url,
+  voteTargetId,
+}: {
+  url: string;
+  voteTargetId?: string;
+}) {
   const [status, setStatus] = useState('');
 
   const copy = async () => {
@@ -16,6 +22,16 @@ export default function CopyShareLink({ url }: { url: string }) {
     }
   };
 
+  const goToVote = () => {
+    if (!voteTargetId) return;
+    const target = document.getElementById(voteTargetId);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      window.location.hash = `#${voteTargetId}`;
+    }
+  };
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -25,6 +41,11 @@ export default function CopyShareLink({ url }: { url: string }) {
         <button type="button" className="btn-secondary" onClick={copy}>
           Copy link
         </button>
+        {voteTargetId && (
+          <button type="button" className="btn-primary" onClick={goToVote}>
+            Vote now
+          </button>
+        )}
       </div>
       {status && <p className="status-message" style={{ margin: '0.5rem 0 0' }}>{status}</p>}
     </div>

@@ -84,7 +84,7 @@ export default async function EntryPage({ params }: { params: { slug: string } }
             </div>
 
             {!isPending ? (
-              <div>
+              <div id="vote-form">
                 <h4>Vote for this entry</h4>
                 <VoteForm contestantId={contestant._id} initialFee={Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100)} />
               </div>
@@ -102,7 +102,7 @@ export default async function EntryPage({ params }: { params: { slug: string } }
               <p className="muted" style={{ margin: 0, wordBreak: 'break-all' }}>
                 <strong>Share link:</strong>
               </p>
-              <CopyShareLink url={contestant.shareUrl} />
+              <CopyShareLink url={contestant.shareUrl} voteTargetId={!isPending ? 'vote-form' : undefined} />
             </div>
           </div>
       </div>
