@@ -72,15 +72,22 @@ router.post('/flutterwave/initialize', async (req, res) => {
   }
 
   const reference = tx_ref || `mq_${Date.now()}`;
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+  let entryRedirectUrl = `${clientUrl}/register?status=success&tx_ref=${encodeURIComponent(reference)}`;
+
+  if (payment_type === 'entry' && meta.contestantId) {
+    const contestant = await Contestant.findById(meta.contestantId);
+    if (contestant?.shareUrl) {
+      entryRedirectUrl = `${contestant.shareUrl}?status=paid&tx_ref=${encodeURIComponent(reference)}`;
+    }
+  }
 
   try {
     const payload = {
       tx_ref: reference,
       amount: String(amount),
       currency,
-      redirect_url:
-        redirect_url ||
-        `${process.env.CLIENT_URL || 'http://localhost:3000'}/${payment_type === 'entry' ? 'register?status=success' : 'vote?status=success'}&tx_ref=${encodeURIComponent(reference)}`,
+      redirect_url: redirect_url || entryRedirectUrl,
       customer: { email: customer_email },
       customizations: {
         title: 'Marthington Quest Voting',

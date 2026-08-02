@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 interface Contestant {
   _id: string;
+  email: string;
   firstName: string;
   lastName: string;
   ageLabel: string;
@@ -17,6 +18,10 @@ interface Contestant {
   uploadAllowance: number;
   status: string;
   shareUrl: string;
+  shareSlug: string;
+  isApproved: boolean;
+  entryPaid: boolean;
+  entryTransactionRef?: string;
 }
 
 interface Stats {
@@ -32,6 +37,8 @@ interface Stats {
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [pending, setPending] = useState<Contestant[]>([]);
+  const [contestants, setContestants] = useState<Contestant[]>([]);
+  const [selectedContestant, setSelectedContestant] = useState<Contestant | null>(null);
   const [status, setStatus] = useState('');
   const [adminToken, setAdminToken] = useState('');
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -41,17 +48,23 @@ export default function AdminPage() {
 
     async function loadAdminData() {
       try {
-        const [statsRes, pendingRes] = await Promise.all([
+        const [statsRes, pendingRes, allRes] = await Promise.all([
           fetch(`${apiBaseUrl}/api/admin/stats?adminToken=${adminToken}`),
           fetch(`${apiBaseUrl}/api/admin/contestants/pending?adminToken=${adminToken}`),
+          fetch(`${apiBaseUrl}/api/admin/contestants?adminToken=${adminToken}`),
         ]);
 
-        if (!statsRes.ok || !pendingRes.ok) {
+        if (!statsRes.ok || !pendingRes.ok || !allRes.ok) {
           throw new Error('Failed to load admin data');
         }
 
         setStats(await statsRes.json());
         setPending(await pendingRes.json());
+        const allContestants = await allRes.json();
+        setContestants(allContestants);
+        if (!selectedContestant && allContestants.length > 0) {
+          setSelectedContestant(allContestants[0]);
+        }
       } catch (error) {
         setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to load admin data'}`);
       }
@@ -79,11 +92,19 @@ export default function AdminPage() {
         throw new Error(errorData.message || 'Approval failed');
       }
 
+      const updated = await response.json();
       setPending((prev) => prev.filter((entry) => entry._id !== id));
+      setContestants((prev) => prev.map((entry) => (entry._id === id ? updated.contestant : entry)));
+      setSelectedContestant((prev) => (prev?.._id === id ? updated.contestant : prev));
       setStatus('Contestant approved successfully');
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to approve'}`);
     }
+  };
+
+  const handleSelectContestant = (contestant: Contestant) => {
+    setSelectedContestant(contestant);
+    setStatus('');
   };
 
   return (
@@ -92,7 +113,7 @@ export default function AdminPage() {
         <div>
           <p className="eyebrow">Admin dashboard</p>
           <h1>Manage the competition</h1>
-          <p className="muted">Approve entries, monitor platform metrics, and keep the contest running smoothly.</p>
+          <p className="muted">Approve entries, inspect contestant profiles, and review platform details.</p>
         </div>
       </div>
 
@@ -141,9 +162,96 @@ export default function AdminPage() {
         </div>
       )}
 
+      <div className="admin-grid">
+        <section className="card contestant-list">
+          <div className="section-heading">
+            <h2>Contestants</h2>
+            <p className="muted">Browse all entries and select a profile to review details.</p>
+          </div>
+          <div className="list-group">
+            {contestants.map((contestant) => (
+              <button
+                key={contestant._id}
+                type="button"
+                className={`entry-row ${selectedContestant?._id === contestant._id ? 'selected' : ''}`}
+                onClick={() => handleSelectContestant(contestant)}
+              >
+                <div>
+                  <strong>{contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`}</strong>
+                  <p className="muted">{contestant.category} • {contestant.isApproved ? 'Approved' : 'Pending'}</p>
+                </div>
+                <span className="status-pill">{contestant.entryPaid ? 'Paid' : 'Unpaid'}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="card detail-panel">
+          {selectedContestant ? (
+            <div>
+              <div className="section-heading">
+                <h2>Contestant profile</h2>
+                <p className="muted">View details, share link, and approve from here.</p>
+              </div>
+
+              <div className="entry-preview">
+                <img src={selectedContestant.imageUrl} alt={selectedContestant.photoTitle} />
+              </div>
+
+              <div className="detail-grid">
+                <div>
+                  <h3>{selectedContestant.photoTitle || `${selectedContestant.firstName} ${selectedContestant.lastName}`}</h3>
+                  <p className="muted">{selectedContestant.category} • {selectedContestant.ageLabel}</p>
+                  <p>{selectedContestant.photoDescription}</p>
+                </div>
+                <div>
+                  <div className="stat-card">
+                    <span>Votes</span>
+                    <strong>{selectedContestant.votes}</strong>
+                  </div>
+                  <div className="stat-card">
+                    <span>Status</span>
+                    <strong>{selectedContestant.isApproved ? 'Approved' : 'Pending approval'}</strong>
+                  </div>
+                  <div className="stat-card">
+                    <span>Payment</span>
+                    <strong>{selectedContestant.entryPaid ? 'Paid' : 'Not paid'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="entry-actions">
+                {!selectedContestant.isApproved && (
+                  <button type="button" className="btn-primary" onClick={() => handleApprove(selectedContestant._id)}>
+                    Approve entry
+                  </button>
+                )}
+                <a href={selectedContestant.shareUrl} target="_blank" rel="noreferrer" className="link-secondary">
+                  Open profile
+                </a>
+              </div>
+
+              <div className="info-card card">
+                <p className="muted" style={{ margin: 0 }}>
+                  Email: {selectedContestant.email}
+                  <br />
+                  WhatsApp: {selectedContestant.whatsapp || 'N/A'}
+                  <br />
+                  Share path: <code>{selectedContestant.shareSlug}</code>
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h3>Select a contestant from the list to see details.</h3>
+            </div>
+          )}
+        </section>
+      </div>
+
       {pending.length > 0 && (
         <section className="pending-list">
-          <h2>Pending submissions</h2>
+          <h2>Pending approvals</h2>
           <div className="pending-grid">
             {pending.map((contestant) => (
               <article key={contestant._id} className="card entry-card">
@@ -153,8 +261,7 @@ export default function AdminPage() {
                     <h3>{contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`}</h3>
                     <p className="muted">Category: {contestant.category}</p>
                     <p className="muted">Contestant: {contestant.firstName} {contestant.lastName}</p>
-                    <p className="muted">Votes: {contestant.votes}</p>
-                    <p className="muted">Upload allowance: {contestant.uploadAllowance}</p>
+                    <p className="muted">Status: {contestant.entryPaid ? 'Paid' : 'Unpaid'}</p>
                   </div>
                 </div>
                 <p>{contestant.photoDescription}</p>

@@ -40,6 +40,28 @@ router.get('/contestants/pending', adminAuth, async (req, res) => {
   }
 });
 
+router.get('/contestants', adminAuth, async (req, res) => {
+  try {
+    const contestants = await Contestant.find().sort({ createdAt: -1 });
+    res.json(contestants);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch contestants', error: error.message });
+  }
+});
+
+router.get('/contestants/:id', adminAuth, async (req, res) => {
+  try {
+    const contestant = await Contestant.findById(req.params.id);
+    if (!contestant) {
+      return res.status(404).json({ message: 'Contestant not found' });
+    }
+
+    res.json(contestant);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch contestant details', error: error.message });
+  }
+});
+
 router.patch('/contestants/:id/approve', adminAuth, async (req, res) => {
   try {
     const contestant = await Contestant.findById(req.params.id);

@@ -27,7 +27,7 @@ router.get('/slug/:slug', async (req, res) => {
   }
 
   try {
-    const contestant = await Contestant.findOne({ shareSlug: req.params.slug, isApproved: true, entryPaid: true });
+    const contestant = await Contestant.findOne({ shareSlug: req.params.slug });
     if (!contestant) {
       return res.status(404).json({ message: 'Entry not found' });
     }

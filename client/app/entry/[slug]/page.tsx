@@ -47,6 +47,13 @@ export default async function EntryPage({ params }: { params: { slug: string } }
     );
   }
 
+  const isPending = !contestant.isApproved || !contestant.entryPaid;
+  const statusLabel = contestant.isApproved
+    ? 'Live entry'
+    : contestant.entryPaid
+    ? 'Awaiting approval'
+    : 'Payment pending';
+
   return (
     <main className="page-shell">
       <div className="page-header">
@@ -58,6 +65,7 @@ export default async function EntryPage({ params }: { params: { slug: string } }
       </div>
 
       <div className="entry-card card">
+        <div className="status-pill">{statusLabel}</div>
         <img src={contestant.imageUrl} alt={contestant.photoTitle || 'Contestant entry'} />
         <div className="entry-actions">
           <div>
@@ -67,7 +75,17 @@ export default async function EntryPage({ params }: { params: { slug: string } }
             <span>Current votes</span>
             <strong>{contestant.votes}</strong>
           </div>
-          <a href={`/vote?contestantId=${contestant._id}`} className="btn-primary">Vote for this photo</a>
+          {isPending ? (
+            <div className="info-card card">
+              <p className="muted" style={{ margin: 0 }}>
+                {contestant.entryPaid
+                  ? 'Your entry is paid and waiting for admin approval. Share this link while you wait.'
+                  : 'Your payment is being confirmed. Once payment settles, your entry will be reviewed for approval.'}
+              </p>
+            </div>
+          ) : (
+            <a href={`/vote?contestantId=${contestant._id}`} className="btn-primary">Vote for this photo</a>
+          )}
           <div className="info-card card">
             <p className="muted" style={{ margin: 0, wordBreak: 'break-all' }}>
               <strong>Share link:</strong>
