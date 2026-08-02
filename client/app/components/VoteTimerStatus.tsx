@@ -33,7 +33,6 @@ export default function VoteTimerStatus({
       <div className="timer-status-top">
         <div>
           <p className="eyebrow">Voting timer</p>
-          <h2>{voteTimerOpen ? 'Open for votes' : 'Voting is paused'}</h2>
         </div>
         <span className={`timer-pill ${voteTimerOpen ? 'open' : 'closed'}`}>
           {voteTimerOpen ? 'Open' : 'Closed'}
