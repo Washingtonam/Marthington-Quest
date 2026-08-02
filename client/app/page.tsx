@@ -19,7 +19,7 @@ export default function HomePage() {
           <ul className="feature-list">
             <li>Easy contestant registration with photo upload</li>
             <li>Live voting powered by secure checkout</li>
-            <li>Admin approval, fees, and stats in one dashboard</li>
+            <li>Approval, fees, and stats managed securely</li>
             <li>Beautiful experience for parents, supporters, and judges</li>
           </ul>
         </aside>
@@ -34,10 +34,7 @@ export default function HomePage() {
           <h3>Vote for entries</h3>
           <p>Browse contestants, cast votes, and support the cutest pictures in the contest.</p>
         </a>
-        <a href="/admin" className="card link-card">
-          <h3>Admin dashboard</h3>
-          <p>Approve entries, update fees, and monitor contest activity.</p>
-        </a>
+        {/* Admin access removed from public landing page to hide the dashboard */}
         <a href="/api-test" className="card link-card">
           <h3>API status</h3>
           <p>Check backend connectivity and make sure everything is ready to launch.</p>
