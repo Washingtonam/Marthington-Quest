@@ -14,7 +14,10 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const contestants = await Contestant.find({ isApproved: true, entryPaid: true }).sort({ votes: -1, createdAt: -1 });
+    // support optional query to include pending or unpaid entries for preview/dev
+    const includePending = req.query.includePending === 'true';
+    const filter = includePending ? {} : { isApproved: true, entryPaid: true };
+    const contestants = await Contestant.find(filter).sort({ votes: -1, createdAt: -1 });
     res.json(contestants);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch contestants', error: error.message });

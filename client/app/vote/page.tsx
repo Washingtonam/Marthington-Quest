@@ -28,7 +28,7 @@ function VotePageContent() {
   useEffect(() => {
     async function loadContestants() {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/contestants`, { cache: 'no-store' });
+        const response = await fetch(`${apiBaseUrl}/api/contestants?includePending=true`, { cache: 'no-store' });
         const result = await response.json();
         setContestants(result || []);
         // fetch public settings for fees
