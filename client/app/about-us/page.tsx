@@ -38,7 +38,7 @@ export default function AboutUsPage() {
 
           <h2>Contact us</h2>
           <p>
-            For questions, support, or partnership requests, please reach us at <a href="mailto:admin@marthington.com">admin@marthington.com</a> or call <a href="tel:+2348129097599">+234 812 909 7599</a>.
+            For questions, support, or partnership requests, please reach us at <a href="mailto:admin@marthington.com">admin@marthington.com</a> or call <a href="tel:+2348085426005">+234 808 542 6005</a>.
           </p>
         </div>
 

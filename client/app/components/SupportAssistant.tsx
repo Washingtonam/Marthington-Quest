@@ -29,7 +29,7 @@ export default function SupportAssistant() {
       .filter(Boolean)
       .join(' ');
 
-    return `https://wa.me/2348129097599?text=${encodeURIComponent(intro)}`;
+    return `https://wa.me/2348085426005?text=${encodeURIComponent(intro)}`;
   }, [details, email, name, topic]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
