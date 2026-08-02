@@ -53,6 +53,7 @@ export default async function EntryPage({ params }: { params: { slug: string } }
   const paymentStatus = contestant.entryPaid ? 'Paid' : 'Unpaid';
   const approvalStatus = contestant.isApproved ? 'Approved' : 'Awaiting approval';
   const statusLabel = isLive ? 'Live entry' : !contestant.entryPaid ? 'Payment pending' : 'Awaiting approval';
+  const isPending = !isLive;
 
   return (
     <main className="page-shell">
