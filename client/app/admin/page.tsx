@@ -95,7 +95,7 @@ export default function AdminPage() {
       const updated = await response.json();
       setPending((prev) => prev.filter((entry) => entry._id !== id));
       setContestants((prev) => prev.map((entry) => (entry._id === id ? updated.contestant : entry)));
-      setSelectedContestant((prev) => (prev?.._id === id ? updated.contestant : prev));
+      setSelectedContestant((prev) => (prev?._id === id ? updated.contestant : prev));
       setStatus('Contestant approved successfully');
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to approve'}`);
