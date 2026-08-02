@@ -22,6 +22,7 @@ function VotePageContent() {
   const [voteCount, setVoteCount] = useState(1);
   const [status, setStatus] = useState('');
   const [voteFee, setVoteFee] = useState<number | null>(null);
+  const [query, setQuery] = useState('');
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
@@ -35,7 +36,7 @@ function VotePageContent() {
           const s = await fetch(`${apiBaseUrl}/api/settings`);
           if (s.ok) {
             const sd = await s.json();
-            setVoteFee(Number(sd.voteFee || process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100));
+            setVoteFee(Number(sd.voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? 100));
           }
         } catch (e) {
           // ignore
@@ -55,13 +56,20 @@ function VotePageContent() {
     if (contestantId) {
       setSelectedContestant(contestantId);
     }
-  const [query, setQuery] = useState('');
+  }, [searchParams]);
+
   const filtered = contestants.filter((c) => {
     const name = `${c.firstName} ${c.lastName}`.toLowerCase();
     return (
       (!query || name.includes(query.toLowerCase()) || (c.photoTitle || '').toLowerCase().includes(query.toLowerCase()))
     );
   });
+
+  const handleVote = async (e: any) => {
+    e.preventDefault();
+    if (!selectedContestant) return setStatus('Please select a contestant');
+    setStatus('Payment flow not yet implemented');
+  };
 
   return (
     <main className="page-shell">
@@ -126,7 +134,7 @@ function VotePageContent() {
       </div>
     </main>
   );
-            <input
+}
               type="email"
               value={supporterEmail}
               onChange={(event) => setSupporterEmail(event.target.value)}
