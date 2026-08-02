@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import Lightbox from '../components/Lightbox';
+import VoteTimerStatus from '../components/VoteTimerStatus';
 import { useSearchParams } from 'next/navigation';
 
 interface Contestant {
@@ -26,6 +27,7 @@ function VotePageContent() {
   const [status, setStatus] = useState('');
   const [voteFee, setVoteFee] = useState<number | null>(null);
   const [query, setQuery] = useState('');
+  const [timer, setTimer] = useState<any>(null);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
@@ -34,12 +36,13 @@ function VotePageContent() {
         const response = await fetch(`${apiBaseUrl}/api/contestants?includePending=true`, { cache: 'no-store' });
         const result = await response.json();
         setContestants(result || []);
-        // fetch public settings for fees
+        // fetch public settings for fees and vote timer
         try {
           const s = await fetch(`${apiBaseUrl}/api/settings`);
           if (s.ok) {
             const sd = await s.json();
             setVoteFee(Number(sd.voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? 100));
+            setTimer(sd);
           }
         } catch (e) {
           // ignore
@@ -75,6 +78,11 @@ function VotePageContent() {
 
     const fee = voteFee ?? Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100);
     const amount = Number(voteCount) * Number(fee);
+
+    if (timer && !timer.voteTimerOpen) {
+      setStatus('Voting is currently closed.');
+      return;
+    }
 
     if (amount === 0) {
       setStatus('Recording free vote...');
@@ -152,6 +160,16 @@ function VotePageContent() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or title" style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: 12, border: '1px solid #e6e6e6' }} />
           <div className="muted">Each vote: ₦{voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? '100'}</div>
         </div>
+        {timer && (
+          <div style={{ marginTop: 12 }}>
+            <VoteTimerStatus
+              voteTimerOpen={timer.voteTimerOpen}
+              voteTimerStatus={timer.voteTimerEffectiveStatus || timer.voteTimerStatus}
+              voteTimerRemainingSeconds={timer.voteTimerRemainingSeconds}
+              voteTimerEndsAt={timer.voteTimerEndsAt}
+            />
+          </div>
+        )}
 
         <div className="masonry">
           {filtered.map((c) => (
@@ -171,6 +189,13 @@ function VotePageContent() {
         <div className="card form-card" style={{ maxWidth: 680 }}>
           <h3>Vote</h3>
           <p className="muted">Select a contestant from above to begin. Or paste a share URL.</p>
+          {timer && !timer.voteTimerOpen && (
+            <div className="info-card card" style={{ marginBottom: 16 }}>
+              <p className="muted" style={{ margin: 0 }}>
+                Voting is currently closed. The timer controls are managed by the admin dashboard.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleVote} className="input-grid">
             <label className="field">
               Supporter email
@@ -195,7 +220,7 @@ function VotePageContent() {
             </label>
 
             <div className="form-actions">
-              <button type="submit" className="btn-primary">Pay and vote</button>
+              <button type="submit" className="btn-primary" disabled={timer && !timer.voteTimerOpen}>Pay and vote</button>
             </div>
           </form>
           {status && <p className="status-message">{status}</p>}

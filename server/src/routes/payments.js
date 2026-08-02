@@ -2,6 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import Contestant from '../models/Contestant.js';
 import Transaction from '../models/Transaction.js';
+import Settings from '../models/Settings.js';
 
 const router = express.Router();
 
@@ -40,6 +41,25 @@ router.post('/entry', async (req, res) => {
   }
 });
 
+async function getVotingStatus() {
+  const settings = await Settings.findOne();
+  if (!settings) return { voteTimerOpen: false };
+
+  const voteTimerSeconds = Number(settings.voteTimerSeconds || 0);
+  const status = settings.voteTimerStatus || 'inactive';
+  const startedAt = settings.voteTimerStartedAt ? new Date(settings.voteTimerStartedAt) : null;
+  const elapsedSeconds = Number(settings.voteTimerElapsedSeconds || 0);
+
+  if (status === 'running' && startedAt) {
+    const elapsedSinceStart = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+    const totalElapsed = elapsedSeconds + elapsedSinceStart;
+    const remainingSeconds = Math.max(voteTimerSeconds - totalElapsed, 0);
+    return { voteTimerOpen: remainingSeconds > 0, remainingSeconds };
+  }
+
+  return { voteTimerOpen: false, remainingSeconds: voteTimerSeconds };
+}
+
 router.post('/vote', async (req, res) => {
   const { contestantId, amount, votes = 1, method, reference } = req.body;
 
@@ -48,6 +68,11 @@ router.post('/vote', async (req, res) => {
   }
 
   try {
+    const votingStatus = await getVotingStatus();
+    if (!votingStatus.voteTimerOpen) {
+      return res.status(403).json({ message: 'Voting is currently closed' });
+    }
+
     const contestant = await Contestant.findById(contestantId);
     if (!contestant) {
       return res.status(404).json({ message: 'Contestant not found' });
@@ -95,6 +120,13 @@ router.post('/flutterwave/initialize', async (req, res) => {
   }
 
   try {
+    if (payment_type === 'vote') {
+      const votingStatus = await getVotingStatus();
+      if (!votingStatus.voteTimerOpen) {
+        return res.status(403).json({ message: 'Voting is currently closed' });
+      }
+    }
+
     const payload = {
       tx_ref: reference,
       amount: String(amount),

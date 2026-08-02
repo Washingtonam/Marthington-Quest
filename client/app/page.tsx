@@ -1,4 +1,26 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import VoteTimerStatus from './components/VoteTimerStatus';
+
 export default function HomePage() {
+  const [settings, setSettings] = useState<any>(null);
+  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const res = await fetch(`${apiBaseUrl}/api/settings`, { cache: 'no-store' });
+        if (res.ok) {
+          setSettings(await res.json());
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    loadSettings();
+  }, [apiBaseUrl]);
+
   return (
     <main className="landing-page">
       <section className="hero">
@@ -40,6 +62,17 @@ export default function HomePage() {
           </div>
         </aside>
       </section>
+
+      {settings && (
+        <section style={{ marginTop: 24 }}>
+          <VoteTimerStatus
+            voteTimerOpen={settings.voteTimerOpen}
+            voteTimerStatus={settings.voteTimerEffectiveStatus || settings.voteTimerStatus}
+            voteTimerRemainingSeconds={settings.voteTimerRemainingSeconds}
+            voteTimerEndsAt={settings.voteTimerEndsAt}
+          />
+        </section>
+      )}
 
       <section style={{ display: 'grid', gap: 18, gridTemplateColumns: '1fr 1fr' }}>
         <a href="/register" className="card link-card">

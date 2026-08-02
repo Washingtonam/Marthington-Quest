@@ -42,8 +42,9 @@ export default function AdminPage() {
   const [status, setStatus] = useState('');
   const [adminToken, setAdminToken] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
-  const [settings, setSettings] = useState<{ entryFee?: number; voteFee?: number } | null>(null);
+  const [settings, setSettings] = useState<any>(null);
   const [voteEdit, setVoteEdit] = useState<number>(0);
+  const [timerStatusMessage, setTimerStatusMessage] = useState('');
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   const loadAdminData = async () => {
@@ -74,7 +75,10 @@ export default function AdminPage() {
         const sres = await fetch(`${apiBaseUrl}/api/admin/settings`, {
           headers: { Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         });
-        if (sres.ok) setSettings(await sres.json());
+        if (sres.ok) {
+        const settingsData = await sres.json();
+        setSettings(settingsData);
+      }
       } catch (e) {
         // ignore
       }
@@ -130,13 +134,38 @@ export default function AdminPage() {
       const res = await fetch(`${apiBaseUrl}/api/admin/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
-        body: JSON.stringify({ entryFee: Number(settings.entryFee || 0), voteFee: Number(settings.voteFee || 0) }),
+        body: JSON.stringify({
+          entryFee: Number(settings.entryFee || 0),
+          voteFee: Number(settings.voteFee || 0),
+          voteTimerSeconds: Number(settings.voteTimerSeconds || 0),
+        }),
       });
       if (!res.ok) throw new Error((await res.json()).message || 'Failed to save settings');
       setStatus('Settings saved');
       await loadAdminData();
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to save settings'}`);
+    }
+  };
+
+  const handleTimerAction = async (action: 'start' | 'pause' | 'stop' | 'reset') => {
+    if (!adminToken || !adminEmail || !settings) return setStatus('Admin token and email required');
+    setTimerStatusMessage('Updating timer...');
+
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
+        body: JSON.stringify({
+          voteTimerSeconds: Number(settings.voteTimerSeconds || 0),
+          voteTimerAction: action,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to update timer');
+      setTimerStatusMessage(`Timer ${action}ed successfully`);
+      await loadAdminData();
+    } catch (error) {
+      setTimerStatusMessage(`Error: ${error instanceof Error ? error.message : 'Unable to update timer'}`);
     }
   };
 
@@ -262,6 +291,19 @@ export default function AdminPage() {
       {settings && (
         <div className="card form-card">
           <h3>Platform settings</h3>
+          {Number(settings.voteTimerSeconds || 0) <= 0 ? (
+            <div className="info-card card" style={{ marginBottom: 12 }}>
+              <p className="muted" style={{ margin: 0 }}>
+                Voting duration is not configured. Set a time in seconds and save before starting the timer.
+              </p>
+            </div>
+          ) : settings.voteTimerStatus !== 'running' && !settings.voteTimerOpen ? (
+            <div className="info-card card" style={{ marginBottom: 12 }}>
+              <p className="muted" style={{ margin: 0 }}>
+                Voting is currently closed. Start or resume the timer to reopen voting.
+              </p>
+            </div>
+          ) : null}
           <label className="field">
             Entry fee (₦)
             <input type="number" value={settings.entryFee ?? 0} onChange={(e) => setSettings({ ...settings, entryFee: Number(e.target.value) })} />
@@ -270,9 +312,34 @@ export default function AdminPage() {
             Vote fee (₦)
             <input type="number" value={settings.voteFee ?? 0} onChange={(e) => setSettings({ ...settings, voteFee: Number(e.target.value) })} />
           </label>
-          <div className="form-actions">
-            <button type="button" className="btn-primary" onClick={handleSaveSettings}>Save settings</button>
+          <label className="field">
+            Voting duration (seconds)
+            <input
+              type="number"
+              min={0}
+              value={settings.voteTimerSeconds ?? 0}
+              onChange={(e) => setSettings({ ...settings, voteTimerSeconds: Number(e.target.value) })}
+            />
+          </label>
+          <div className="status-row" style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+            <div>
+              <strong>Timer status:</strong> {settings.voteTimerEffectiveStatus || settings.voteTimerStatus || 'inactive'}
+            </div>
+            <div>
+              <strong>Remaining:</strong> {settings.voteTimerRemainingSeconds != null ? `${settings.voteTimerRemainingSeconds}s` : 'N/A'}
+            </div>
+            <div>
+              <strong>Open:</strong> {settings.voteTimerOpen ? 'Yes' : 'No'}
+            </div>
           </div>
+          <div className="form-actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            <button type="button" className="btn-primary" onClick={handleSaveSettings}>Save settings</button>
+            <button type="button" className="btn-secondary" onClick={() => handleTimerAction('start')}>Start</button>
+            <button type="button" className="btn-secondary" onClick={() => handleTimerAction('pause')}>Pause</button>
+            <button type="button" className="btn-secondary" onClick={() => handleTimerAction('stop')}>Stop</button>
+            <button type="button" className="btn-secondary" onClick={() => handleTimerAction('reset')}>Reset</button>
+          </div>
+          {timerStatusMessage && <p className="muted" style={{ marginTop: 12 }}>{timerStatusMessage}</p>}
         </div>
       )}
 

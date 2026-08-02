@@ -34,7 +34,7 @@ async function fetchEntry(slug: string): Promise<Contestant | null> {
   return resp.json();
 }
 
-async function fetchSettings(): Promise<{ entryFee: number; voteFee: number }> {
+async function fetchSettings(): Promise<any> {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
   const resp = await fetch(`${apiBaseUrl}/api/settings`, { cache: 'no-store' });
   if (!resp.ok) {
@@ -65,9 +65,10 @@ export default async function EntryPage({ params }: { params: { slug: string } }
   const paymentStatus = contestant.entryPaid ? 'Paid' : 'Unpaid';
   const approvalStatus = contestant.isApproved ? 'Approved' : 'Awaiting approval';
   const statusLabel = isLive ? 'Live entry' : !contestant.entryPaid ? 'Payment pending' : 'Awaiting approval';
-  const isPending = !isLive;
-
   const voteFee = settings.voteFee ?? Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100);
+  const voteTimerOpen = Boolean(settings.voteTimerOpen);
+  const canVote = isLive && voteTimerOpen;
+  const isPending = !isLive;
 
   return (
     <main className="page-shell">
@@ -95,7 +96,7 @@ export default async function EntryPage({ params }: { params: { slug: string } }
               <strong>{contestant.votes}</strong>
             </div>
 
-            {!isPending ? (
+            {canVote ? (
               <div id="vote-form">
                 <h4>Vote for this entry</h4>
                 <VoteForm contestantId={contestant._id} initialFee={voteFee} />
@@ -103,9 +104,11 @@ export default async function EntryPage({ params }: { params: { slug: string } }
             ) : (
               <div className="info-card card">
                 <p className="muted" style={{ margin: 0 }}>
-                  {contestant.entryPaid
-                    ? 'Your entry is paid and waiting for admin approval. Share this link while you wait.'
-                    : 'Your payment is being confirmed. Once payment settles, your entry will be reviewed for approval.'}
+                  {isLive
+                    ? 'Voting is currently closed. The admin timer must be started to accept votes.'
+                    : contestant.entryPaid
+                      ? 'Your entry is paid and waiting for admin approval. Share this link while you wait.'
+                      : 'Your payment is being confirmed. Once payment settles, your entry will be reviewed for approval.'}
                 </p>
               </div>
             )}
