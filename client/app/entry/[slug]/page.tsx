@@ -13,6 +13,8 @@ interface Contestant {
   imageUrl: string;
   votes: number;
   shareUrl: string;
+  isApproved: boolean;
+  entryPaid: boolean;
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
