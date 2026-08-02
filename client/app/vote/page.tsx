@@ -1,20 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface Contestant {
   _id: string;
-  name: string;
-  age: number;
-  parentName: string;
-  bio: string;
+  firstName: string;
+  lastName: string;
+  ageLabel: string;
+  nickname: string;
+  photoTitle: string;
   imageUrl: string;
   votes: number;
 }
 
 export default function VotePage() {
+  const searchParams = useSearchParams();
   const [contestants, setContestants] = useState<Contestant[]>([]);
   const [selectedContestant, setSelectedContestant] = useState('');
+  const [supporterEmail, setSupporterEmail] = useState('');
   const [voteCount, setVoteCount] = useState(1);
   const [status, setStatus] = useState('');
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -32,6 +36,13 @@ export default function VotePage() {
 
     loadContestants();
   }, [apiBaseUrl]);
+
+  useEffect(() => {
+    const contestantId = searchParams?.get('contestantId');
+    if (contestantId) {
+      setSelectedContestant(contestantId);
+    }
+  }, [searchParams]);
 
   const handleVote = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -51,7 +62,8 @@ export default function VotePage() {
         body: JSON.stringify({
           amount: amountValue,
           currency: 'NGN',
-          customer_email: 'support@marthington-quest.app',
+          customer_email: supporterEmail,
+          payment_type: 'vote',
           meta: { contestantId: selectedContestant, votes: voteCount },
         }),
       });
@@ -75,12 +87,23 @@ export default function VotePage() {
 
       <form onSubmit={handleVote} style={{ display: 'grid', gap: '1rem', maxWidth: 560 }}>
         <label>
+          Supporter email
+          <input
+            type="email"
+            value={supporterEmail}
+            onChange={(event) => setSupporterEmail(event.target.value)}
+            placeholder="you@example.com"
+            required
+          />
+        </label>
+
+        <label>
           Select contestant
           <select value={selectedContestant} onChange={(event) => setSelectedContestant(event.target.value)} required>
             <option value="">Select...</option>
             {contestants.map((contestant) => (
               <option key={contestant._id} value={contestant._id}>
-                {contestant.name} ({contestant.votes} votes)
+                {contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`} ({contestant.votes} votes)
               </option>
             ))}
           </select>
@@ -96,6 +119,8 @@ export default function VotePage() {
             required
           />
         </label>
+
+        <p className="muted">Each vote costs ₦{process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || '100'}.</p>
 
         <button type="submit" style={{ padding: '0.75rem 1.25rem' }}>
           Pay and vote

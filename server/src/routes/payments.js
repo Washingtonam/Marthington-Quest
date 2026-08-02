@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import Contestant from '../models/Contestant.js';
 import Transaction from '../models/Transaction.js';
 
@@ -60,7 +61,7 @@ router.post('/vote', async (req, res) => {
 
 // Initialize a Flutterwave payment and return a payment link
 router.post('/flutterwave/initialize', async (req, res) => {
-  const { amount, currency = 'NGN', customer_email, tx_ref, redirect_url, meta = {} } = req.body;
+  const { amount, currency = 'NGN', customer_email, tx_ref, redirect_url, meta = {}, payment_type = 'vote' } = req.body;
 
   if (!process.env.FLW_SECRET_KEY) {
     return res.status(500).json({ message: 'FLW_SECRET_KEY is not configured on the server' });
@@ -77,10 +78,27 @@ router.post('/flutterwave/initialize', async (req, res) => {
       tx_ref: reference,
       amount: String(amount),
       currency,
-      redirect_url: redirect_url || `${process.env.CLIENT_URL || 'http://localhost:3000'}/vote`,
+      redirect_url:
+        redirect_url ||
+        `${process.env.CLIENT_URL || 'http://localhost:3000'}/${payment_type === 'entry' ? 'register?status=success' : 'vote?status=success'}&tx_ref=${encodeURIComponent(reference)}`,
       customer: { email: customer_email },
+      customizations: {
+        title: 'Marthington Quest Voting',
+        description: payment_type === 'entry' ? 'Entry fee payment' : 'Vote pack purchase',
+      },
       meta,
+      payment_options: 'card,ussd,banktransfer',
     };
+
+    if (process.env.FLW_SUBACCOUNT_ID) {
+      payload.subaccounts = [
+        {
+          id: process.env.FLW_SUBACCOUNT_ID,
+          transaction_charge_type: 'flat_subaccount',
+          transaction_charge: process.env.FLW_SUBACCOUNT_CHARGE || '0',
+        },
+      ];
+    }
 
     const resp = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
@@ -98,12 +116,12 @@ router.post('/flutterwave/initialize', async (req, res) => {
 
     // Record a pending transaction
     await Transaction.create({
-      type: 'vote',
+      type: payment_type,
       contestantId: meta.contestantId || null,
       amount: Number(amount),
       method: 'flutterwave',
       status: 'pending',
-      metadata: { tx_ref: reference, ...meta },
+      metadata: { tx_ref: reference, payment_type, ...meta },
     });
 
     return res.json({ link: data.data?.link || data.data?.authorization?.url || null, raw: data });
@@ -113,23 +131,60 @@ router.post('/flutterwave/initialize', async (req, res) => {
 });
 
 // Webhook endpoint for Flutterwave
-router.post('/flutterwave/webhook', express.json({ type: '*/*' }), async (req, res) => {
+router.post('/flutterwave/webhook', express.raw({ type: '*/*' }), async (req, res) => {
   try {
-    const payload = req.body;
-    // Basic handling: check status in payload and update transaction if found
+    if (!process.env.FLW_SECRET_HASH) {
+      return res.status(500).json({ message: 'FLW_SECRET_HASH not configured' });
+    }
+
+    const signatureHeader = req.headers['verif-hash'] || req.headers['verifhash'] || '';
+    const rawBody = req.body instanceof Buffer ? req.body : Buffer.from('');
+    const expectedSignature = crypto
+      .createHmac('sha256', process.env.FLW_SECRET_HASH)
+      .update(rawBody)
+      .digest('hex');
+
+    if (!signatureHeader || signatureHeader !== expectedSignature) {
+      return res.status(403).json({ message: 'Invalid webhook signature' });
+    }
+
+    const payload = JSON.parse(rawBody.toString('utf-8'));
     const status = payload?.data?.status || payload?.event;
     const tx_ref = payload?.data?.tx_ref || payload?.data?.reference || payload?.tx_ref;
 
+    if (!tx_ref) {
+      return res.status(400).json({ message: 'Missing tx_ref' });
+    }
+
+    const tx = await Transaction.findOne({ 'metadata.tx_ref': tx_ref });
+    if (!tx) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
     if (status === 'successful' || status === 'charge.completed' || payload?.data?.status === 'successful') {
-      // mark transaction completed by tx_ref
-      const tx = await Transaction.findOne({ 'metadata.tx_ref': tx_ref });
-      if (tx) {
-        tx.status = 'completed';
-        await tx.save();
+      tx.status = 'completed';
+      await tx.save();
+
+      if (tx.type === 'entry' && tx.metadata?.contestantId) {
+        const contestant = await Contestant.findById(tx.metadata.contestantId);
+        if (contestant) {
+          contestant.entryPaid = true;
+          contestant.entryTransactionRef = tx_ref;
+          contestant.uploadAllowance = tx.metadata?.tier === 'premium' ? 3 : 1;
+          contestant.status = 'paid';
+          await contestant.save();
+        }
+      }
+
+      if (tx.type === 'vote' && tx.metadata?.contestantId) {
+        const contestant = await Contestant.findById(tx.metadata.contestantId);
+        if (contestant) {
+          contestant.votes += Number(tx.metadata?.votes || 1);
+          await contestant.save();
+        }
       }
     }
 
-    // Acknowledge receipt
     res.json({ received: true });
   } catch (error) {
     res.status(500).json({ message: 'Webhook handling failed', error: error.message });

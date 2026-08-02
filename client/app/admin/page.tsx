@@ -4,13 +4,19 @@ import { useEffect, useState } from 'react';
 
 interface Contestant {
   _id: string;
-  name: string;
-  age: number;
-  parentName: string;
-  bio: string;
+  firstName: string;
+  lastName: string;
+  ageLabel: string;
+  nickname: string;
+  whatsapp: string;
+  photoTitle: string;
+  photoDescription: string;
+  category: string;
   imageUrl: string;
   votes: number;
-  isApproved: boolean;
+  uploadAllowance: number;
+  status: string;
+  shareUrl: string;
 }
 
 interface Stats {
@@ -114,17 +120,29 @@ export default function AdminPage() {
 
       {pending.length > 0 && (
         <section>
-          <h2>Pending contestants</h2>
+          <h2>Pending submissions</h2>
           <div style={{ display: 'grid', gap: '1rem' }}>
             {pending.map((contestant) => (
               <article key={contestant._id} style={{ border: '1px solid #ddd', padding: '1rem', borderRadius: 8 }}>
-                <h3>{contestant.name}</h3>
-                <p>Age: {contestant.age}</p>
-                <p>Parent: {contestant.parentName}</p>
-                <p>{contestant.bio}</p>
-                <button type="button" onClick={() => handleApprove(contestant._id)}>
-                  Approve contestant
-                </button>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <img src={contestant.imageUrl} alt={contestant.photoTitle} style={{ width: 120, borderRadius: 12, objectFit: 'cover' }} />
+                  <div>
+                    <h3 style={{ margin: '0 0 0.5rem' }}>{contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`}</h3>
+                    <p style={{ margin: '0.25rem 0' }}>Category: {contestant.category}</p>
+                    <p style={{ margin: '0.25rem 0' }}>Contestant: {contestant.firstName} {contestant.lastName}</p>
+                    <p style={{ margin: '0.25rem 0' }}>Votes: {contestant.votes}</p>
+                    <p style={{ margin: '0.25rem 0' }}>Upload allowance: {contestant.uploadAllowance}</p>
+                  </div>
+                </div>
+                <p style={{ marginTop: '1rem' }}>{contestant.photoDescription}</p>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <button type="button" onClick={() => handleApprove(contestant._id)} style={{ background: '#6b21a8', color: '#fff', padding: '0.75rem 1rem', border: 'none', borderRadius: 999, cursor: 'pointer' }}>
+                    Approve submission
+                  </button>
+                  <a href={contestant.shareUrl} target="_blank" rel="noreferrer" style={{ color: '#374151', textDecoration: 'underline' }}>
+                    View share link
+                  </a>
+                </div>
               </article>
             ))}
           </div>

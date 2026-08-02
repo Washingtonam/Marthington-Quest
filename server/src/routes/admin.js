@@ -48,6 +48,7 @@ router.patch('/contestants/:id/approve', adminAuth, async (req, res) => {
     }
 
     contestant.isApproved = true;
+    contestant.status = 'approved';
     await contestant.save();
     res.json({ message: 'Contestant approved', contestant });
   } catch (error) {

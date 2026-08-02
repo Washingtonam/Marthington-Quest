@@ -10,6 +10,8 @@ export default function RegisterPage() {
     ageLabel: '',
     nickname: '',
     whatsapp: '',
+    category: 'nature',
+    photoTitle: '',
     bio: '',
   });
   const [file, setFile] = useState<File | null>(null);
@@ -36,7 +38,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setStatus('Submitting entry...');
+    setStatus('Preparing your registration...');
 
     try {
       let imageUrl = '';
@@ -60,28 +62,49 @@ export default function RegisterPage() {
 
       const payload = {
         email: formState.email,
-        name: `${formState.firstName} ${formState.lastName}`.trim(),
-        age: formState.ageLabel,
-        parentName: formState.nickname || formState.whatsapp || 'N/A',
-        bio: formState.bio,
+        firstName: formState.firstName,
+        lastName: formState.lastName,
+        ageLabel: formState.ageLabel,
+        nickname: formState.nickname,
+        whatsapp: formState.whatsapp,
+        photoTitle: formState.photoTitle,
+        photoDescription: formState.bio,
+        category: formState.category,
         imageUrl,
       };
 
-      const response = await fetch(`${apiBaseUrl}/api/contestants`, {
+      const createRes = await fetch(`${apiBaseUrl}/api/contestants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to submit');
+      if (!createRes.ok) {
+        const errorData = await createRes.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to create registration');
       }
 
-      setStatus('Entry submitted! Awaiting approval.');
-      setFormState({ email: '', firstName: '', lastName: '', ageLabel: '', nickname: '', whatsapp: '', bio: '' });
-      setFile(null);
-      setPreview(null);
+      const contestant = await createRes.json();
+      const entryAmount = Number(process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA || '2000');
+      const initRes = await fetch(`${apiBaseUrl}/api/payments/flutterwave/initialize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: entryAmount,
+          currency: 'NGN',
+          customer_email: formState.email,
+          payment_type: 'entry',
+          meta: { contestantId: contestant._id, tier: 'standard' },
+        }),
+      });
+
+      const initData = await initRes.json();
+      if (!initRes.ok || !initData.link) {
+        throw new Error(initData.message || 'Failed to initialize entry payment');
+      }
+
+      setStatus('Redirecting to payment...');
+      window.location.href = initData.link;
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -122,6 +145,22 @@ export default function RegisterPage() {
           <label className="field">
             WhatsApp Number
             <input name="whatsapp" value={formState.whatsapp} onChange={handleChange} placeholder="e.g. +2348012345678" />
+          </label>
+
+          <label className="field">
+            Photo title
+            <input name="photoTitle" value={formState.photoTitle} onChange={handleChange} placeholder="e.g. Sunrise in the Delta" />
+          </label>
+
+          <label className="field">
+            Category
+            <select name="category" value={formState.category} onChange={handleChange}>
+              <option value="nature">Nature</option>
+              <option value="portrait">Portrait</option>
+              <option value="travel">Travel</option>
+              <option value="street">Street</option>
+              <option value="lifestyle">Lifestyle</option>
+            </select>
           </label>
 
           <label className="field">

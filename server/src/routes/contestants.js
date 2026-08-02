@@ -14,10 +14,27 @@ router.get('/', async (req, res) => {
   }
 
   try {
-    const contestants = await Contestant.find({ isApproved: true }).sort({ votes: -1, createdAt: -1 });
+    const contestants = await Contestant.find({ isApproved: true, entryPaid: true }).sort({ votes: -1, createdAt: -1 });
     res.json(contestants);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch contestants', error: error.message });
+  }
+});
+
+router.get('/slug/:slug', async (req, res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return res.status(503).json({ message: 'Database unavailable' });
+  }
+
+  try {
+    const contestant = await Contestant.findOne({ shareSlug: req.params.slug, isApproved: true, entryPaid: true });
+    if (!contestant) {
+      return res.status(404).json({ message: 'Entry not found' });
+    }
+
+    res.json(contestant);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch entry', error: error.message });
   }
 });
 
@@ -27,7 +44,24 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const contestant = await Contestant.create(req.body);
+    const contestant = await Contestant.create({
+      email: req.body.email,
+      firstName: req.body.firstName,
+      lastName: req.body.lastName,
+      ageLabel: req.body.ageLabel,
+      nickname: req.body.nickname,
+      whatsapp: req.body.whatsapp,
+      photoTitle: req.body.photoTitle,
+      photoDescription: req.body.photoDescription,
+      category: req.body.category,
+      imageUrl: req.body.imageUrl,
+      entryPaid: false,
+      isApproved: false,
+      status: 'pending',
+      uploadAllowance: 1,
+      tier: 'standard',
+    });
+
     res.status(201).json(contestant);
   } catch (error) {
     res.status(400).json({ message: 'Failed to create contestant', error: error.message });
