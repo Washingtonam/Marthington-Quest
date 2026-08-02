@@ -164,14 +164,14 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="card form-card" style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(320px, 0.8fr)' }}>
+      <div className="card form-card register-layout">
         <div>
           <div className="card info-card" style={{ marginBottom: '1.5rem' }}>
             <h2>How registration works</h2>
             <ul style={{ paddingLeft: '1.2rem', margin: '1rem 0 0', color: '#475569', lineHeight: 1.8 }}>
               <li>Upload a photo and tell us their story.</li>
               <li>Provide contact details so you can receive updates.</li>
-              <li>Pay the entry fee or register for free if the fee is zero.</li>
+              <li>Pay the entry fee.</li>
               <li>Your entry will be reviewed and approved by admin.</li>
             </ul>
           </div>

@@ -195,6 +195,12 @@ textarea {
   max-width: 860px;
 }
 
+.register-layout {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+}
+
 .input-grid {
   display: grid;
   gap: 1.25rem;
@@ -527,6 +533,10 @@ button.btn-secondary:hover {
 
   .page-content {
     padding: 1.25rem;
+  }
+
+  .register-layout {
+    grid-template-columns: 1fr;
   }
 }
 
