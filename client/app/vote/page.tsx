@@ -54,7 +54,6 @@ function VotePageContent() {
     setStatus('Recording vote...');
 
     try {
-      // initialize a Flutterwave payment and redirect to the payment link
       const amountValue = voteCount * Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || '100');
       const initRes = await fetch(`${apiBaseUrl}/api/payments/flutterwave/initialize`, {
         method: 'POST',
@@ -73,7 +72,6 @@ function VotePageContent() {
         throw new Error(initData.message || 'Failed to initialize payment');
       }
 
-      // Redirect user to Flutterwave payment page
       window.location.href = initData.link;
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -81,60 +79,67 @@ function VotePageContent() {
   };
 
   return (
-    <main style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
-      <h1>Vote for a Baby</h1>
-      <p>Pick a contestant, choose how many votes to purchase, and submit your support.</p>
+    <main className="page-shell">
+      <div className="page-header">
+        <div>
+          <p className="eyebrow">Vote for your favorite</p>
+          <h1>Support a contestant</h1>
+          <p className="muted">Choose the contestant and how many votes you'd like to send their way.</p>
+        </div>
+      </div>
 
-      <form onSubmit={handleVote} style={{ display: 'grid', gap: '1rem', maxWidth: 560 }}>
-        <label>
-          Supporter email
-          <input
-            type="email"
-            value={supporterEmail}
-            onChange={(event) => setSupporterEmail(event.target.value)}
-            placeholder="you@example.com"
-            required
-          />
-        </label>
+      <div className="card form-card">
+        <form className="input-grid" onSubmit={handleVote}>
+          <label className="field">
+            Supporter email
+            <input
+              type="email"
+              value={supporterEmail}
+              onChange={(event) => setSupporterEmail(event.target.value)}
+              placeholder="you@example.com"
+              required
+            />
+          </label>
 
-        <label>
-          Select contestant
-          <select value={selectedContestant} onChange={(event) => setSelectedContestant(event.target.value)} required>
-            <option value="">Select...</option>
-            {contestants.map((contestant) => (
-              <option key={contestant._id} value={contestant._id}>
-                {contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`} ({contestant.votes} votes)
-              </option>
-            ))}
-          </select>
-        </label>
+          <label className="field">
+            Select contestant
+            <select value={selectedContestant} onChange={(event) => setSelectedContestant(event.target.value)} required>
+              <option value="">Select...</option>
+              {contestants.map((contestant) => (
+                <option key={contestant._id} value={contestant._id}>
+                  {contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`} ({contestant.votes} votes)
+                </option>
+              ))}
+            </select>
+          </label>
 
-        <label>
-          Number of votes
-          <input
-            type="number"
-            min="1"
-            value={voteCount}
-            onChange={(event) => setVoteCount(Number(event.target.value))}
-            required
-          />
-        </label>
+          <label className="field">
+            Number of votes
+            <input
+              type="number"
+              min="1"
+              value={voteCount}
+              onChange={(event) => setVoteCount(Number(event.target.value))}
+              required
+            />
+          </label>
 
-        <p className="muted">Each vote costs ₦{process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || '100'}.</p>
+          <p className="muted">Each vote costs ₦{process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || '100'}.</p>
 
-        <button type="submit" style={{ padding: '0.75rem 1.25rem' }}>
-          Pay and vote
-        </button>
-      </form>
+          <div className="form-actions">
+            <button type="submit" className="btn-primary">Pay and vote</button>
+          </div>
+        </form>
 
-      {status && <p>{status}</p>}
+        {status && <p className="status-message">{status}</p>}
+      </div>
     </main>
   );
 }
 
 export default function VotePage() {
   return (
-    <Suspense fallback={<main style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}><p>Loading vote page…</p></main>}>
+    <Suspense fallback={<main className="page-shell"><p>Loading vote page…</p></main>}>
       <VotePageContent />
     </Suspense>
   );

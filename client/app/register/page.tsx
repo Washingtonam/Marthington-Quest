@@ -113,11 +113,16 @@ export default function RegisterPage() {
   };
 
   return (
-    <main>
-      <div className="card">
-        <h1 style={{ marginTop: 0 }}>Sign Up</h1>
-        <p className="muted">Please provide the details below and upload a picture (max 10MB).</p>
+    <main className="page-shell">
+      <div className="page-header">
+        <div>
+          <p className="eyebrow">Contestant registration</p>
+          <h1>Register a contestant</h1>
+          <p className="muted">Complete the form below, upload a photo, then finish payment to submit your entry.</p>
+        </div>
+      </div>
 
+      <div className="card form-card">
         <form className="input-grid" onSubmit={handleSubmit}>
           <label className="field">
             Email Address
@@ -136,7 +141,7 @@ export default function RegisterPage() {
 
           <label className="field">
             Child's Age (eg. 5 Months, 2 Years)
-            <input name="ageLabel" placeholder="Age: 8 years Maximum" value={formState.ageLabel} onChange={handleChange} />
+            <input name="ageLabel" placeholder="Age: 8 years maximum" value={formState.ageLabel} onChange={handleChange} />
           </label>
 
           <label className="field">
@@ -166,7 +171,7 @@ export default function RegisterPage() {
           </label>
 
           <label className="field">
-            Upload Child's Picture and NOTE that this is the picture your child would use for the competition. Max-size: 10MB
+            Upload contestant photo
             <div className="file-input-wrapper">
               <input type="file" accept="image/*" onChange={handleFile} />
               {preview && <img src={preview} className="preview-image" alt="preview" />}
@@ -175,15 +180,15 @@ export default function RegisterPage() {
 
           <label className="field">
             Additional information
-            <textarea name="bio" value={formState.bio} onChange={handleChange} rows={3} />
+            <textarea name="bio" value={formState.bio} onChange={handleChange} rows={4} />
           </label>
 
-          <div>
+          <div className="form-actions">
             <button type="submit" className="btn-primary">Continue</button>
           </div>
         </form>
 
-        {status && <p style={{ marginTop: '1rem' }}>{status}</p>}
+        {status && <p className="status-message">{status}</p>}
       </div>
     </main>
   );

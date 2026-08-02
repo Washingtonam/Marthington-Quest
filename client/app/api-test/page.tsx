@@ -14,9 +14,18 @@ export default function ApiTestPage() {
   }, [apiBaseUrl]);
 
   return (
-    <main style={{ padding: '2rem' }}>
-      <h1>API health check</h1>
-      <p>{message}</p>
+    <main className="page-shell">
+      <div className="page-header">
+        <div>
+          <p className="eyebrow">Health check</p>
+          <h1>API status</h1>
+          <p className="muted">Confirm the backend is reachable and ready to serve the contest.</p>
+        </div>
+      </div>
+
+      <div className="card">
+        <p>{message}</p>
+      </div>
     </main>
   );
 }

@@ -87,59 +87,82 @@ export default function AdminPage() {
   };
 
   return (
-    <main style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}>
-      <h1>Admin Dashboard</h1>
-      <p>Manage contestant approvals, view stats, and tune entry/voting fees.</p>
+    <main className="page-shell">
+      <div className="page-header">
+        <div>
+          <p className="eyebrow">Admin dashboard</p>
+          <h1>Manage the competition</h1>
+          <p className="muted">Approve entries, monitor platform metrics, and keep the contest running smoothly.</p>
+        </div>
+      </div>
 
-      <label style={{ display: 'block', marginBottom: '1rem' }}>
-        Admin token
-        <input
-          type="password"
-          value={adminToken}
-          onChange={(event) => setAdminToken(event.target.value)}
-          style={{ display: 'block', marginTop: '0.5rem', width: '100%', maxWidth: 400 }}
-        />
-      </label>
+      <div className="card form-card">
+        <label className="field">
+          Admin token
+          <input
+            type="password"
+            value={adminToken}
+            onChange={(event) => setAdminToken(event.target.value)}
+            placeholder="Enter admin token"
+          />
+        </label>
+      </div>
 
       {stats ? (
-        <div style={{ marginBottom: '2rem' }}>
-          <h2>Platform stats</h2>
-          <ul>
-            <li>Total contestants: {stats.totalContestants}</li>
-            <li>Pending entries: {stats.pendingEntries}</li>
-            <li>Approved entries: {stats.approvedEntries}</li>
-            <li>Total votes: {stats.totalVotes}</li>
-            <li>Total revenue: ₦{stats.totalRevenue}</li>
-            <li>Entry fee: ₦{stats.entryFee}</li>
-            <li>Vote fee: ₦{stats.voteFee}</li>
-          </ul>
+        <div className="stats-grid">
+          <div className="stat-card">
+            <span>Total contestants</span>
+            <strong>{stats.totalContestants}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Pending entries</span>
+            <strong>{stats.pendingEntries}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Approved entries</span>
+            <strong>{stats.approvedEntries}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Total votes</span>
+            <strong>{stats.totalVotes}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Total revenue</span>
+            <strong>₦{stats.totalRevenue}</strong>
+          </div>
+          <div className="stat-card">
+            <span>Entry fee</span>
+            <strong>₦{stats.entryFee}</strong>
+          </div>
         </div>
       ) : (
-        <p>Enter the admin token to load dashboard data.</p>
+        <div className="card info-card">
+          <p>Enter the admin token to load dashboard data.</p>
+        </div>
       )}
 
       {pending.length > 0 && (
-        <section>
+        <section className="pending-list">
           <h2>Pending submissions</h2>
-          <div style={{ display: 'grid', gap: '1rem' }}>
+          <div className="pending-grid">
             {pending.map((contestant) => (
-              <article key={contestant._id} style={{ border: '1px solid #ddd', padding: '1rem', borderRadius: 8 }}>
-                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <img src={contestant.imageUrl} alt={contestant.photoTitle} style={{ width: 120, borderRadius: 12, objectFit: 'cover' }} />
+              <article key={contestant._id} className="card entry-card">
+                <div className="entry-preview">
+                  <img src={contestant.imageUrl} alt={contestant.photoTitle} />
                   <div>
-                    <h3 style={{ margin: '0 0 0.5rem' }}>{contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`}</h3>
-                    <p style={{ margin: '0.25rem 0' }}>Category: {contestant.category}</p>
-                    <p style={{ margin: '0.25rem 0' }}>Contestant: {contestant.firstName} {contestant.lastName}</p>
-                    <p style={{ margin: '0.25rem 0' }}>Votes: {contestant.votes}</p>
-                    <p style={{ margin: '0.25rem 0' }}>Upload allowance: {contestant.uploadAllowance}</p>
+                    <h3>{contestant.photoTitle || `${contestant.firstName} ${contestant.lastName}`}</h3>
+                    <p className="muted">Category: {contestant.category}</p>
+                    <p className="muted">Contestant: {contestant.firstName} {contestant.lastName}</p>
+                    <p className="muted">Votes: {contestant.votes}</p>
+                    <p className="muted">Upload allowance: {contestant.uploadAllowance}</p>
                   </div>
                 </div>
-                <p style={{ marginTop: '1rem' }}>{contestant.photoDescription}</p>
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                  <button type="button" onClick={() => handleApprove(contestant._id)} style={{ background: '#6b21a8', color: '#fff', padding: '0.75rem 1rem', border: 'none', borderRadius: 999, cursor: 'pointer' }}>
+                <p>{contestant.photoDescription}</p>
+                <div className="entry-actions">
+                  <button type="button" onClick={() => handleApprove(contestant._id)} className="btn-primary">
                     Approve submission
                   </button>
-                  <a href={contestant.shareUrl} target="_blank" rel="noreferrer" style={{ color: '#374151', textDecoration: 'underline' }}>
+                  <a href={contestant.shareUrl} target="_blank" rel="noreferrer" className="link-secondary">
                     View share link
                   </a>
                 </div>
@@ -149,7 +172,7 @@ export default function AdminPage() {
         </section>
       )}
 
-      {status && <p>{status}</p>}
+      {status && <p className="status-message">{status}</p>}
     </main>
   );
 }
