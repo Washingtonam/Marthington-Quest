@@ -140,22 +140,22 @@ router.post('/flutterwave/initialize', async (req, res) => {
 // Webhook endpoint for Flutterwave
 router.post('/flutterwave/webhook', express.raw({ type: '*/*' }), async (req, res) => {
   try {
-    if (!process.env.FLW_SECRET_HASH) {
-      return res.status(500).json({ message: 'FLW_SECRET_HASH not configured' });
-    }
-
     const signatureHeader = req.headers['verif-hash'] || req.headers['verifhash'] || '';
     const rawBody = req.body instanceof Buffer ? req.body : Buffer.from('');
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.FLW_SECRET_HASH)
-      .update(rawBody)
-      .digest('hex');
-
-    if (!signatureHeader || signatureHeader !== expectedSignature) {
-      return res.status(403).json({ message: 'Invalid webhook signature' });
-    }
-
     const payload = JSON.parse(rawBody.toString('utf-8'));
+
+    if (process.env.FLW_SECRET_HASH) {
+      const expectedSignature = crypto
+        .createHmac('sha256', process.env.FLW_SECRET_HASH)
+        .update(rawBody)
+        .digest('hex');
+
+      if (!signatureHeader || signatureHeader !== expectedSignature) {
+        return res.status(403).json({ message: 'Invalid webhook signature' });
+      }
+    } else {
+      console.warn('FLW_SECRET_HASH not configured; webhook signature is not being verified.');
+    }
     const status = payload?.data?.status || payload?.event;
     const tx_ref = payload?.data?.tx_ref || payload?.data?.reference || payload?.tx_ref;
 

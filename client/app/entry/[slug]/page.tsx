@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 
 async function fetchEntry(slug: string): Promise<Contestant | null> {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-  const resp = await fetch(`${apiBaseUrl}/api/contestants/slug/${slug}`);
+  const resp = await fetch(`${apiBaseUrl}/api/contestants/slug/${slug}`, { cache: 'no-store' });
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -49,12 +49,10 @@ export default async function EntryPage({ params }: { params: { slug: string } }
     );
   }
 
-  const isPending = !contestant.isApproved || !contestant.entryPaid;
-  const statusLabel = contestant.isApproved
-    ? 'Live entry'
-    : contestant.entryPaid
-    ? 'Awaiting approval'
-    : 'Payment pending';
+  const isLive = contestant.isApproved && contestant.entryPaid;
+  const paymentStatus = contestant.entryPaid ? 'Paid' : 'Unpaid';
+  const approvalStatus = contestant.isApproved ? 'Approved' : 'Awaiting approval';
+  const statusLabel = isLive ? 'Live entry' : !contestant.entryPaid ? 'Payment pending' : 'Awaiting approval';
 
   return (
     <main className="page-shell">
@@ -68,6 +66,10 @@ export default async function EntryPage({ params }: { params: { slug: string } }
 
       <div className="entry-card card">
         <div className="status-pill">{statusLabel}</div>
+        <div className="status-row">
+          <span className="pill">Payment: {paymentStatus}</span>
+          <span className="pill">Approval: {approvalStatus}</span>
+        </div>
         <img src={contestant.imageUrl} alt={contestant.photoTitle || 'Contestant entry'} />
         <div className="entry-actions">
           <div>

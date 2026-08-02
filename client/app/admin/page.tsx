@@ -43,33 +43,33 @@ export default function AdminPage() {
   const [adminToken, setAdminToken] = useState('');
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-  useEffect(() => {
+  const loadAdminData = async () => {
     if (!adminToken) return;
 
-    async function loadAdminData() {
-      try {
-        const [statsRes, pendingRes, allRes] = await Promise.all([
-          fetch(`${apiBaseUrl}/api/admin/stats?adminToken=${adminToken}`),
-          fetch(`${apiBaseUrl}/api/admin/contestants/pending?adminToken=${adminToken}`),
-          fetch(`${apiBaseUrl}/api/admin/contestants?adminToken=${adminToken}`),
-        ]);
+    try {
+      const [statsRes, pendingRes, allRes] = await Promise.all([
+        fetch(`${apiBaseUrl}/api/admin/stats?adminToken=${adminToken}`),
+        fetch(`${apiBaseUrl}/api/admin/contestants/pending?adminToken=${adminToken}`),
+        fetch(`${apiBaseUrl}/api/admin/contestants?adminToken=${adminToken}`),
+      ]);
 
-        if (!statsRes.ok || !pendingRes.ok || !allRes.ok) {
-          throw new Error('Failed to load admin data');
-        }
-
-        setStats(await statsRes.json());
-        setPending(await pendingRes.json());
-        const allContestants = await allRes.json();
-        setContestants(allContestants);
-        if (!selectedContestant && allContestants.length > 0) {
-          setSelectedContestant(allContestants[0]);
-        }
-      } catch (error) {
-        setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to load admin data'}`);
+      if (!statsRes.ok || !pendingRes.ok || !allRes.ok) {
+        throw new Error('Failed to load admin data');
       }
-    }
 
+      setStats(await statsRes.json());
+      setPending(await pendingRes.json());
+      const allContestants = await allRes.json();
+      setContestants(allContestants);
+      if (!selectedContestant && allContestants.length > 0) {
+        setSelectedContestant(allContestants[0]);
+      }
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to load admin data'}`);
+    }
+  };
+
+  useEffect(() => {
     loadAdminData();
   }, [adminToken, apiBaseUrl]);
 
@@ -92,10 +92,13 @@ export default function AdminPage() {
         throw new Error(errorData.message || 'Approval failed');
       }
 
-      const updated = await response.json();
+      const { contestant: approvedContestant } = await response.json();
       setPending((prev) => prev.filter((entry) => entry._id !== id));
-      setContestants((prev) => prev.map((entry) => (entry._id === id ? updated.contestant : entry)));
-      setSelectedContestant((prev) => (prev?._id === id ? updated.contestant : prev));
+      setContestants((prev) => prev.map((entry) => (entry._id === id ? approvedContestant : entry)));
+      if (selectedContestant?._id === id) {
+        setSelectedContestant(approvedContestant);
+      }
+      await loadAdminData();
       setStatus('Contestant approved successfully');
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to approve'}`);
