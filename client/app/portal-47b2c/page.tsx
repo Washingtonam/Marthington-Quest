@@ -41,18 +41,24 @@ export default function AdminPage() {
   const [selectedContestant, setSelectedContestant] = useState<Contestant | null>(null);
   const [status, setStatus] = useState('');
   const [adminToken, setAdminToken] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
   const [settings, setSettings] = useState<{ entryFee?: number; voteFee?: number } | null>(null);
   const [voteEdit, setVoteEdit] = useState<number>(0);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   const loadAdminData = async () => {
-    if (!adminToken) return;
+    if (!adminToken || !adminEmail) return;
+
+    const headers = {
+      Authorization: `Bearer ${adminToken}`,
+      'x-admin-email': adminEmail,
+    };
 
     try {
       const [statsRes, pendingRes, allRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/api/admin/stats?adminToken=${adminToken}`),
-        fetch(`${apiBaseUrl}/api/admin/contestants/pending?adminToken=${adminToken}`),
-        fetch(`${apiBaseUrl}/api/admin/contestants?adminToken=${adminToken}`),
+        fetch(`${apiBaseUrl}/api/admin/stats`, { headers }),
+        fetch(`${apiBaseUrl}/api/admin/contestants/pending`, { headers }),
+        fetch(`${apiBaseUrl}/api/admin/contestants`, { headers }),
       ]);
 
       if (!statsRes.ok || !pendingRes.ok || !allRes.ok) {
@@ -65,7 +71,9 @@ export default function AdminPage() {
       setContestants(allContestants);
       // fetch settings
       try {
-        const sres = await fetch(`${apiBaseUrl}/api/admin/settings?adminToken=${adminToken}`);
+        const sres = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+          headers: { Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
+        });
         if (sres.ok) setSettings(await sres.json());
       } catch (e) {
         // ignore
@@ -80,19 +88,21 @@ export default function AdminPage() {
 
   useEffect(() => {
     loadAdminData();
-  }, [adminToken, apiBaseUrl]);
+  }, [adminToken, adminEmail, apiBaseUrl]);
 
   const handleApprove = async (id: string) => {
-    if (!adminToken) {
-      setStatus('Admin token required');
+    if (!adminToken || !adminEmail) {
+      setStatus('Admin token and email required');
       return;
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}/approve?adminToken=${encodeURIComponent(adminToken)}`, {
+      const response = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}/approve`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+          'x-admin-email': adminEmail,
         },
       });
 
@@ -115,11 +125,11 @@ export default function AdminPage() {
   };
 
   const handleSaveSettings = async () => {
-    if (!adminToken || !settings) return setStatus('Admin token required');
+    if (!adminToken || !adminEmail || !settings) return setStatus('Admin token and email required');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/settings?adminToken=${adminToken}`, {
+      const res = await fetch(`${apiBaseUrl}/api/admin/settings`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         body: JSON.stringify({ entryFee: Number(settings.entryFee || 0), voteFee: Number(settings.voteFee || 0) }),
       });
       if (!res.ok) throw new Error((await res.json()).message || 'Failed to save settings');
@@ -131,11 +141,11 @@ export default function AdminPage() {
   };
 
   const handleTogglePaid = async (id: string, current: boolean) => {
-    if (!adminToken) return setStatus('Admin token required');
+    if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}?adminToken=${adminToken}`, {
+      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         body: JSON.stringify({ entryPaid: !current }),
       });
       if (!res.ok) throw new Error((await res.json()).message || 'Failed to update payment status');
@@ -147,10 +157,13 @@ export default function AdminPage() {
   };
 
   const handleDeleteContestant = async (id: string) => {
-    if (!adminToken) return setStatus('Admin token required');
+    if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
     if (!confirm('Delete this contestant? This action cannot be undone.')) return;
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}?adminToken=${adminToken}`, { method: 'DELETE' });
+      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
+      });
       if (!res.ok) throw new Error((await res.json()).message || 'Delete failed');
       setStatus('Contestant deleted');
       await loadAdminData();
@@ -167,11 +180,11 @@ export default function AdminPage() {
   };
 
   const handleUpdateVotes = async (id: string) => {
-    if (!adminToken) return setStatus('Admin token required');
+    if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}?adminToken=${adminToken}`, {
+      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         body: JSON.stringify({ votes: Number(voteEdit) }),
       });
       if (!res.ok) throw new Error((await res.json()).message || 'Failed to update votes');
@@ -200,6 +213,15 @@ export default function AdminPage() {
             value={adminToken}
             onChange={(event) => setAdminToken(event.target.value)}
             placeholder="Enter admin token"
+          />
+        </label>
+        <label className="field">
+          Admin email
+          <input
+            type="email"
+            value={adminEmail}
+            onChange={(event) => setAdminEmail(event.target.value)}
+            placeholder="Enter your authorized admin email"
           />
         </label>
       </div>

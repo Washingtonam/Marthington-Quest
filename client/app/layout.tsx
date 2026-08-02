@@ -16,7 +16,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="nav-links">
               <a href="/register">Register</a>
               <a href="/vote">Vote</a>
-              <a href="/admin">Admin</a>
               <a href="/api-test">API Test</a>
             </nav>
           </header>

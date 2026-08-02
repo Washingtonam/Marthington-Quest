@@ -43,6 +43,38 @@ app.get('/', (req, res) => {
   res.json({ message: 'Welcome to Marthington Quest API' });
 });
 
+// deliberately block public /admin client route to avoid exposing dashboard
+app.all('/admin', (req, res) => {
+  res.status(404).send('Not found');
+});
+
+// secret redirect endpoint: visit /admin-enter with token and email to access hidden admin UI
+app.all('/admin-enter', (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(404).send('Not found');
+  }
+
+  const { token, email } = req.body || {};
+  if (!token || !email) {
+    return res.status(404).json({ message: 'Not found' });
+  }
+
+  if (!process.env.ADMIN_TOKEN) {
+    return res.status(500).json({ message: 'Admin token not configured' });
+  }
+
+  const allowedEmails = process.env.ADMIN_EMAILS
+    ? process.env.ADMIN_EMAILS.split(',').map((address) => address.trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  if (token !== process.env.ADMIN_TOKEN || !allowedEmails.includes(String(email).toLowerCase())) {
+    return res.status(404).json({ message: 'Not found' });
+  }
+
+  const client = process.env.CLIENT_URL || 'http://localhost:3000';
+  return res.json({ redirect: `${client.replace(/\/$/, '')}/portal-47b2c` });
+});
+
 app.use('/api/contestants', contestantsRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/admin', adminRouter);
