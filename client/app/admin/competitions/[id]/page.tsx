@@ -61,6 +61,12 @@ interface Transaction {
     votes?: number;
     adjustment?: boolean;
     reason?: string;
+    adminStatusUpdate?: {
+      status: 'completed' | 'failed';
+      reason: string;
+      updatedBy?: string;
+      updatedAt?: string;
+    };
   };
 }
 
@@ -110,6 +116,7 @@ export default function CompetitionDetailsPage() {
   const [voteAdjustmentReason, setVoteAdjustmentReason] = useState('');
   const [loadingContestants, setLoadingContestants] = useState(false);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [updatingTransactionId, setUpdatingTransactionId] = useState('');
   const [uploadingImage, setUploadingImage] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>('analytics');
   const [entryFee, setEntryFee] = useState('0');
@@ -349,6 +356,56 @@ export default function CompetitionDetailsPage() {
       setError(requestError instanceof Error ? requestError.message : 'Unable to delete contestant.');
     } finally {
       setBusyContestant('');
+    }
+  };
+
+  const updateTransactionStatus = async (
+    event: FormEvent<HTMLFormElement>,
+    transactionId: string
+  ) => {
+    event.preventDefault();
+    if (!session) return;
+    const formData = new FormData(event.currentTarget);
+    const nextStatus = formData.get('status');
+    const reason = String(formData.get('reason') || '').trim();
+    if ((nextStatus !== 'completed' && nextStatus !== 'failed') || !reason) {
+      setError('Choose a status and provide a reason for the update.');
+      return;
+    }
+
+    setUpdatingTransactionId(transactionId);
+    setError('');
+    setNotice('');
+    try {
+      const result = await adminRequest<{ transaction: Transaction }>(
+        `/api/admin/transactions/${encodeURIComponent(transactionId)}/status`,
+        session,
+        {
+          method: 'PATCH',
+          headers: { 'x-competition-id': competitionId },
+          body: JSON.stringify({ status: nextStatus, reason }),
+        }
+      );
+      setTransactions((current) => current.map((transaction) =>
+        transaction._id === transactionId
+          ? { ...transaction, status: result.transaction.status, meta: result.transaction.meta }
+          : transaction
+      ));
+      const updatedVoteTransaction = transactions.find((transaction) => transaction._id === transactionId);
+      if (nextStatus === 'completed' && updatedVoteTransaction?.contestantId?._id) {
+        const votesAdded = Number(updatedVoteTransaction.meta?.votes || 0);
+        setContestants((current) => current.map((contestant) =>
+          contestant._id === updatedVoteTransaction.contestantId?._id
+            ? { ...contestant, votes: contestant.votes + votesAdded }
+            : contestant
+        ));
+      }
+      await loadData(session, false);
+      setNotice(`Transaction marked ${nextStatus}.`);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to update transaction status.');
+    } finally {
+      setUpdatingTransactionId('');
     }
   };
 
@@ -715,7 +772,7 @@ export default function CompetitionDetailsPage() {
                     ) : (
                       <div className="admin-table-wrap">
                         <table className="admin-table">
-                          <thead><tr><th>Date</th><th>Contestant</th><th>Votes</th><th>Amount</th><th>Status</th><th>Method / reason</th></tr></thead>
+                          <thead><tr><th>Date</th><th>Contestant</th><th>Votes</th><th>Amount</th><th>Status</th><th>Method / reason</th><th>Action</th></tr></thead>
                           <tbody>{voteTransactions.slice(0, 100).map((transaction) => (
                             <tr key={transaction._id}>
                               <td>{formatDate(transaction.createdAt)}</td>
@@ -723,7 +780,36 @@ export default function CompetitionDetailsPage() {
                               <td>{Number(transaction.meta?.votes || 0).toLocaleString()}</td>
                               <td>{currency(transaction.amount)}</td>
                               <td><span className={`admin-status-pill ${transaction.status === 'completed' ? 'admin-status-active' : transaction.status === 'failed' ? 'admin-status-closed' : 'admin-status-draft'}`}>{transaction.status}</span></td>
-                              <td>{transaction.meta?.adjustment ? `Admin adjustment: ${transaction.meta.reason || 'No reason provided'}` : transaction.method}</td>
+                              <td>
+                                {transaction.meta?.adjustment
+                                  ? `Admin adjustment: ${transaction.meta.reason || 'No reason provided'}`
+                                  : transaction.meta?.adminStatusUpdate
+                                    ? `${transaction.method} · Admin update: ${transaction.meta.adminStatusUpdate.reason}`
+                                    : transaction.method}
+                              </td>
+                              <td>
+                                {transaction.status === 'pending' ? (
+                                  <details className="admin-transaction-status-editor">
+                                    <summary>Update status</summary>
+                                    <form onSubmit={(event) => void updateTransactionStatus(event, transaction._id)}>
+                                      <label className="admin-field">New status
+                                        <select name="status" required defaultValue="">
+                                          <option value="" disabled>Select status</option>
+                                          <option value="completed">Completed</option>
+                                          <option value="failed">Failed</option>
+                                        </select>
+                                      </label>
+                                      <label className="admin-field">Reason
+                                        <input name="reason" required maxLength={500} placeholder="Why is this payment being updated?" />
+                                      </label>
+                                      <small>Only mark completed after confirming payment. Completing a vote payment adds its votes.</small>
+                                      <button className="admin-button admin-button-primary" disabled={updatingTransactionId === transaction._id}>
+                                        {updatingTransactionId === transaction._id ? 'Updating…' : 'Save status'}
+                                      </button>
+                                    </form>
+                                  </details>
+                                ) : <span className="admin-transaction-final">Final</span>}
+                              </td>
                             </tr>
                           ))}</tbody>
                         </table>

@@ -194,6 +194,110 @@ router.get('/transactions', adminAuth, async (req, res) => {
   }
 });
 
+router.patch('/transactions/:id/status', adminAuth, async (req, res) => {
+  const { status, reason } = req.body || {};
+  const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+  if (!['completed', 'failed'].includes(status)) {
+    return res.status(400).json({ message: 'status must be completed or failed' });
+  }
+  if (!normalizedReason || normalizedReason.length > 500) {
+    return res.status(400).json({ message: 'A reason of 1 to 500 characters is required' });
+  }
+
+  let session;
+  try {
+    const competition = await resolveRequestCompetition(req);
+    session = await mongoose.startSession();
+    let updatedTransaction;
+
+    await session.withTransaction(async () => {
+      const transaction = await Transaction.findOne({
+        _id: req.params.id,
+        competitionId: competition._id,
+      }).session(session);
+      if (!transaction) {
+        const error = new Error('Transaction not found');
+        error.status = 404;
+        throw error;
+      }
+      if (transaction.status !== 'pending') {
+        const error = new Error('Only pending transactions can be updated');
+        error.status = 409;
+        throw error;
+      }
+
+      if (status === 'completed') {
+        if (!transaction.contestantId || !['entry', 'vote'].includes(transaction.type)) {
+          const error = new Error('Transaction is missing a contestant or supported payment type');
+          error.status = 400;
+          throw error;
+        }
+
+        const contestantFilter = {
+          _id: transaction.contestantId,
+          competitionId: competition._id,
+          ...(transaction.type === 'entry' ? { entryPaid: false } : {}),
+        };
+        const transactionMeta = transaction.meta || transaction.metadata || {};
+        let contestantUpdate;
+        if (transaction.type === 'vote') {
+          const votes = Number(transactionMeta.votes ?? transactionMeta.voteCount ?? 1);
+          if (!Number.isInteger(votes) || votes < 1) {
+            const error = new Error('Transaction has an invalid vote count');
+            error.status = 400;
+            throw error;
+          }
+          contestantUpdate = { $inc: { votes } };
+        } else {
+          contestantUpdate = {
+            $set: {
+              entryPaid: true,
+              entryTransactionRef: transaction.txRef,
+              uploadAllowance: transactionMeta.tier === 'premium' ? 3 : 1,
+              status: 'paid',
+            },
+          };
+        }
+
+        const contestant = await Contestant.findOneAndUpdate(
+          contestantFilter,
+          contestantUpdate,
+          { new: true, session }
+        );
+        if (!contestant) {
+          const error = new Error(
+            transaction.type === 'entry'
+              ? 'Contestant was not found or their entry has already been paid'
+              : 'Contestant not found in this competition'
+          );
+          error.status = 409;
+          throw error;
+        }
+      }
+
+      transaction.status = status;
+      transaction.meta = {
+        ...(transaction.meta || {}),
+        adminStatusUpdate: {
+          status,
+          reason: normalizedReason,
+          updatedBy: req.headers['x-admin-email'],
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      transaction.markModified('meta');
+      await transaction.save({ session });
+      updatedTransaction = transaction;
+    });
+
+    res.json({ message: 'Transaction status updated', transaction: updatedTransaction });
+  } catch (error) {
+    res.status(error.status || 500).json({ message: 'Failed to update transaction status', error: error.message });
+  } finally {
+    if (session) await session.endSession();
+  }
+});
+
 router.get('/competition', adminAuth, async (req, res) => {
   try {
     const competition = await resolveRequestCompetition(req);
