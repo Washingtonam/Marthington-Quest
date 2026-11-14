@@ -81,6 +81,7 @@ export default function AdminPage() {
   const [authReady, setAuthReady] = useState(false);
   const [settings, setSettings] = useState<any>(null);
   const [voteEdit, setVoteEdit] = useState<number>(0);
+  const [voteAdjustmentReason, setVoteAdjustmentReason] = useState('');
   const [timerStatusMessage, setTimerStatusMessage] = useState('');
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [selectedCompetitionId, setSelectedCompetitionId] = useState('');
@@ -427,19 +428,25 @@ export default function AdminPage() {
   const handleSelectContestant = (contestant: Contestant) => {
     setSelectedContestant(contestant);
     setStatus('');
-    setVoteEdit(contestant.votes || 0);
+    setVoteEdit(1);
+    setVoteAdjustmentReason('');
   };
 
   const handleUpdateVotes = async (id: string) => {
     if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
+    if (!Number.isInteger(voteEdit) || voteEdit < 1 || !voteAdjustmentReason.trim()) {
+      return setStatus('Enter a positive whole number of votes and a reason');
+    }
     try {
-      const res = await fetch(`${competitionAdminUrl}/contestants/${id}`, {
-        method: 'PATCH',
+      const res = await fetch(`${competitionAdminUrl}/contestants/${id}/votes`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
-        body: JSON.stringify({ votes: Number(voteEdit) }),
+        body: JSON.stringify({ votes: Number(voteEdit), reason: voteAdjustmentReason }),
       });
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to update votes');
-      setStatus('Votes updated');
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to add votes');
+      setStatus('Votes added and adjustment recorded');
+      setVoteEdit(1);
+      setVoteAdjustmentReason('');
       await loadAdminData();
     } catch (error) {
       setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to update votes'}`);
@@ -777,11 +784,26 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <div className="stat-card">
-                    <span>Votes</span>
+                    <span>Current votes</span>
                     <strong>{selectedContestant.votes}</strong>
                     <div style={{ marginTop: 8 }}>
-                      <input type="number" value={voteEdit} onChange={(e) => setVoteEdit(Number(e.target.value))} style={{ width: 120 }} />
-                      <button type="button" className="btn-primary" onClick={() => handleUpdateVotes(selectedContestant._id)} style={{ marginLeft: 8 }}>Save</button>
+                      <label className="field">
+                        Votes to add
+                        <input type="number" min="1" step="1" value={voteEdit} onChange={(e) => setVoteEdit(Number(e.target.value))} />
+                      </label>
+                      <label className="field">
+                        Reason
+                        <input type="text" maxLength={500} required value={voteAdjustmentReason} onChange={(e) => setVoteAdjustmentReason(e.target.value)} />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn-primary"
+                        disabled={!voteAdjustmentReason.trim() || !Number.isInteger(voteEdit) || voteEdit < 1}
+                        onClick={() => handleUpdateVotes(selectedContestant._id)}
+                        style={{ marginLeft: 8 }}
+                      >
+                        Add votes
+                      </button>
                     </div>
                   </div>
                   <div className="stat-card">

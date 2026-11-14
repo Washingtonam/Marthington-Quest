@@ -14,7 +14,7 @@ export async function adminRequest<T>(
   const headers = new Headers(options.headers);
   headers.set('Authorization', `Bearer ${session.token}`);
   headers.set('x-admin-email', session.email);
-  if (options.body && !headers.has('Content-Type')) {
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
 

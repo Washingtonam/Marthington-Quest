@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import CopyShareLink from '../../../../entry/CopyShareLink';
 import VoteForm from '../../../../entry/VoteForm';
 
@@ -35,10 +36,15 @@ export default function ContestantVotePage({
 }: {
   params: { slug: string; contestantSlug: string };
 }) {
+  const searchParams = useSearchParams();
+  const paymentReference = searchParams.get('tx_ref');
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [contestant, setContestant] = useState<Contestant | null>(null);
   const [votingSettings, setVotingSettings] = useState<VotingSettings | null>(null);
   const [error, setError] = useState('');
+  const [paymentNotice, setPaymentNotice] = useState('');
+  const [paymentPending, setPaymentPending] = useState(false);
+  const [paymentCheckAttempt, setPaymentCheckAttempt] = useState(0);
   const [shareUrl, setShareUrl] = useState('');
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -97,6 +103,53 @@ export default function ContestantVotePage({
   }, [apiBaseUrl, params.slug, params.contestantSlug]);
 
   useEffect(() => {
+    if (!paymentReference) return;
+    let active = true;
+
+    async function verifyPayment() {
+      setPaymentNotice('Verifying your payment with Flutterwave…');
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/payments/flutterwave/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tx_ref: paymentReference }),
+        });
+        const result = await response.json();
+        if (!active) return;
+        if (response.status === 202) {
+          setPaymentPending(true);
+          setPaymentNotice(result.message || 'Payment is not confirmed yet. Please check again shortly.');
+          return;
+        }
+        if (!response.ok) {
+          throw new Error(result.message || 'Unable to verify your payment');
+        }
+
+        const contestantUrl =
+          `${apiBaseUrl}/api/competitions/${encodeURIComponent(params.slug)}/contestants/slug/` +
+          `${encodeURIComponent(params.contestantSlug)}?public=true`;
+        const contestantResponse = await fetch(contestantUrl, { cache: 'no-store' });
+        if (!contestantResponse.ok) throw new Error('Payment confirmed, but contestant votes could not be refreshed');
+        const contestantResult: Contestant = await contestantResponse.json();
+        if (!active) return;
+        setContestant(contestantResult);
+        setPaymentPending(false);
+        setPaymentNotice('Payment confirmed. Your votes have been added. Thank you!');
+      } catch (requestError: unknown) {
+        if (active) {
+          setPaymentPending(false);
+          setPaymentNotice(requestError instanceof Error ? requestError.message : 'Unable to verify your payment');
+        }
+      }
+    }
+
+    void verifyPayment();
+    return () => {
+      active = false;
+    };
+  }, [apiBaseUrl, params.slug, params.contestantSlug, paymentReference, paymentCheckAttempt]);
+
+  useEffect(() => {
     setShareUrl(`${window.location.origin}/competitions/${encodeURIComponent(params.slug)}/vote/${encodeURIComponent(params.contestantSlug)}`);
   }, [params.slug, params.contestantSlug]);
 
@@ -126,6 +179,17 @@ export default function ContestantVotePage({
           <p className="muted">{contestant.firstName} {contestant.lastName}</p>
         </div>
       </div>
+
+      {paymentNotice && (
+        <div>
+          <p className="status-message" role="status">{paymentNotice}</p>
+          {paymentPending && (
+            <button type="button" className="btn-secondary" onClick={() => setPaymentCheckAttempt((attempt) => attempt + 1)}>
+              Check payment again
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="entry-card card">
         {contestant.imageUrl && (

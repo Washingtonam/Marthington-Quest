@@ -308,8 +308,161 @@ router.post('/flutterwave/initialize', async (req, res) => {
   }
 });
 
+async function completeFlutterwaveTransaction(txRef, amountPaid, rawResponse) {
+  const session = await mongoose.startSession();
+  let alreadyProcessed = false;
+  let contestant;
+
+  try {
+    await session.withTransaction(async () => {
+      const transaction = await Transaction.findOne({ txRef }).session(session);
+      if (!transaction) {
+        const error = new Error('Transaction reference not found');
+        error.status = 404;
+        throw error;
+      }
+      if (transaction.status === 'completed') {
+        alreadyProcessed = true;
+        contestant = await Contestant.findOne({
+          _id: transaction.contestantId,
+          competitionId: transaction.competitionId,
+        }).session(session);
+        return;
+      }
+      if (transaction.status !== 'pending') {
+        const error = new Error('Transaction is not pending');
+        error.status = 409;
+        throw error;
+      }
+      if (Math.abs(Number(transaction.amount) - amountPaid) > 0.01) {
+        const error = new Error('Payment amount does not match the transaction');
+        error.status = 400;
+        throw error;
+      }
+
+      const transactionMeta = transaction.meta || transaction.metadata || {};
+      const contestantId = transaction.contestantId || transactionMeta.contestantId;
+      if (!contestantId || !['entry', 'vote'].includes(transaction.type)) {
+        const error = new Error('Transaction is missing contestant or payment type metadata');
+        error.status = 400;
+        throw error;
+      }
+
+      let contestantUpdate;
+      if (transaction.type === 'vote') {
+        const voteCount = Number(transactionMeta.votes ?? transactionMeta.voteCount ?? 1);
+        if (!Number.isInteger(voteCount) || voteCount < 1) {
+          const error = new Error('Transaction has an invalid vote count');
+          error.status = 400;
+          throw error;
+        }
+        contestantUpdate = { $inc: { votes: voteCount } };
+      } else {
+        contestantUpdate = {
+          $set: {
+            entryPaid: true,
+            entryTransactionRef: txRef,
+            uploadAllowance: transactionMeta.tier === 'premium' ? 3 : 1,
+            status: 'paid',
+          },
+        };
+      }
+
+      contestant = await Contestant.findOneAndUpdate(
+        { _id: contestantId, competitionId: transaction.competitionId },
+        contestantUpdate,
+        { new: true, session }
+      );
+      if (!contestant) {
+        const error = new Error('Contestant not found in the transaction competition');
+        error.status = 404;
+        throw error;
+      }
+
+      const transactionResult = await Transaction.updateOne(
+        { _id: transaction._id, status: 'pending' },
+        { $set: { status: 'completed', amount: amountPaid, rawResponse } },
+        { session }
+      );
+      if (transactionResult.modifiedCount !== 1) {
+        throw new Error('Transaction could not be completed');
+      }
+    });
+
+    return { alreadyProcessed, contestant };
+  } finally {
+    await session.endSession();
+  }
+}
+
+router.post('/flutterwave/verify', async (req, res) => {
+  const txRef = typeof req.body?.tx_ref === 'string' ? req.body.tx_ref.trim() : '';
+  if (!txRef) {
+    return res.status(400).json({ message: 'tx_ref is required' });
+  }
+  if (!process.env.FLW_SECRET_KEY) {
+    return res.status(500).json({ message: 'FLW_SECRET_KEY is not configured on the server' });
+  }
+
+  try {
+    const transaction = await Transaction.findOne({ txRef, type: 'vote', method: 'flutterwave' });
+    if (!transaction) {
+      return res.status(404).json({ message: 'Vote payment reference not found' });
+    }
+    if (transaction.status === 'completed') {
+      const contestant = await Contestant.findOne({
+        _id: transaction.contestantId,
+        competitionId: transaction.competitionId,
+      }).select('votes');
+      return res.json({ status: 'already processed', contestant });
+    }
+    if (transaction.status !== 'pending') {
+      return res.status(409).json({ message: 'Vote payment is not pending' });
+    }
+
+    const response = await fetch(
+      `https://api.flutterwave.com/v3/transactions/verify_by_reference?tx_ref=${encodeURIComponent(txRef)}`,
+      {
+        headers: { Authorization: `Bearer ${process.env.FLW_SECRET_KEY}` },
+      }
+    );
+    const verification = await response.json();
+    if (!response.ok || verification.status !== 'success') {
+      console.error('Flutterwave payment verification failed:', verification);
+      return res.status(502).json({ message: 'Unable to verify payment with Flutterwave' });
+    }
+
+    const payment = verification.data;
+    if (payment?.tx_ref !== txRef) {
+      return res.status(400).json({ message: 'Flutterwave returned a different payment reference' });
+    }
+    if (String(payment?.status).toLowerCase() !== 'successful') {
+      return res.status(202).json({ status: 'pending', message: 'Payment is not confirmed yet. Please check again shortly.' });
+    }
+    if (String(payment?.currency).toUpperCase() !== 'NGN') {
+      return res.status(400).json({ message: 'Payment currency does not match the vote transaction' });
+    }
+
+    const amountPaid = Number(payment.amount);
+    if (!Number.isFinite(amountPaid)) {
+      return res.status(400).json({ message: 'Flutterwave returned an invalid payment amount' });
+    }
+
+    const result = await completeFlutterwaveTransaction(txRef, amountPaid, payment);
+    return res.json({
+      status: result.alreadyProcessed ? 'already processed' : 'success',
+      contestant: result.contestant ? { votes: result.contestant.votes } : null,
+    });
+  } catch (error) {
+    console.error('Flutterwave payment verification error:', error);
+    return res.status(error.status || 500).json({
+      message: 'Failed to verify vote payment',
+      error: error.message,
+    });
+  }
+});
+
 async function handleFlutterwaveWebhook(req, res) {
-  let session;
   try {
     const signatureHeader = req.headers['verif-hash'] || req.headers['verifhash'] || '';
     const rawBody = req.rawBody;
@@ -344,84 +497,14 @@ async function handleFlutterwaveWebhook(req, res) {
       return res.status(400).json({ message: 'Invalid payment amount' });
     }
 
-    session = await mongoose.startSession();
-    let alreadyProcessed = false;
-    await session.withTransaction(async () => {
-      const transaction = await Transaction.findOne({ txRef }).session(session);
-      if (!transaction) {
-        const error = new Error('Transaction reference not found');
-        error.status = 404;
-        throw error;
-      }
-      if (transaction.status === 'completed') {
-        alreadyProcessed = true;
-        return;
-      }
-      if (transaction.status !== 'pending') {
-        const error = new Error('Transaction is not pending');
-        error.status = 409;
-        throw error;
-      }
-      if (Math.abs(Number(transaction.amount) - amountPaid) > 0.01) {
-        const error = new Error('Payment amount does not match the transaction');
-        error.status = 400;
-        throw error;
-      }
-
-      const transactionMeta = transaction.meta || transaction.metadata || {};
-      const contestantId = transaction.contestantId || transactionMeta.contestantId;
-      if (!contestantId || !['entry', 'vote'].includes(transaction.type)) {
-        const error = new Error('Transaction is missing contestant or payment type metadata');
-        error.status = 400;
-        throw error;
-      }
-      const contestantFilter = { _id: contestantId, competitionId: transaction.competitionId };
-      const paymentType = transaction.type;
-      let contestantUpdate;
-      if (paymentType === 'vote') {
-        const voteCount = Number(transactionMeta.votes ?? transactionMeta.voteCount ?? 1);
-        if (!Number.isInteger(voteCount) || voteCount < 1) {
-          const error = new Error('Transaction has an invalid vote count');
-          error.status = 400;
-          throw error;
-        }
-        contestantUpdate = { $inc: { votes: voteCount } };
-      } else {
-        contestantUpdate = {
-          $set: {
-            entryPaid: true,
-            entryTransactionRef: txRef,
-            uploadAllowance: transactionMeta.tier === 'premium' ? 3 : 1,
-            status: 'paid',
-          },
-        };
-      }
-
-      const contestantResult = await Contestant.updateOne(contestantFilter, contestantUpdate, { session });
-      if (contestantResult.matchedCount !== 1) {
-        const error = new Error('Contestant not found in the transaction competition');
-        error.status = 404;
-        throw error;
-      }
-      const transactionResult = await Transaction.updateOne(
-        { _id: transaction._id, status: 'pending' },
-        { $set: { status: 'completed', amount: amountPaid, rawResponse: payload.data } },
-        { session }
-      );
-      if (transactionResult.modifiedCount !== 1) {
-        throw new Error('Transaction could not be completed');
-      }
-    });
-
-    return res.status(200).json({ status: alreadyProcessed ? 'already processed' : 'success' });
+    const result = await completeFlutterwaveTransaction(txRef, amountPaid, payload.data);
+    return res.status(200).json({ status: result.alreadyProcessed ? 'already processed' : 'success' });
   } catch (error) {
     if (error instanceof SyntaxError) {
       return res.status(400).json({ message: 'Invalid webhook JSON' });
     }
     console.error('Webhook processing error:', error);
     return res.status(error.status || 500).json({ message: 'Webhook processing failed', error: error.message });
-  } finally {
-    if (session) await session.endSession();
   }
 }
 

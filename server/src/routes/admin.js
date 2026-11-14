@@ -1,4 +1,6 @@
 import express from 'express';
+import crypto from 'crypto';
+import mongoose from 'mongoose';
 import Contestant from '../models/Contestant.js';
 import Transaction from '../models/Transaction.js';
 import Competition from '../models/Competition.js';
@@ -267,6 +269,60 @@ router.get('/contestants', adminAuth, async (req, res) => {
   }
 });
 
+router.post('/contestants/:id/votes', adminAuth, async (req, res) => {
+  const votes = Number(req.body?.votes);
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
+  if (!Number.isInteger(votes) || votes < 1) {
+    return res.status(400).json({ message: 'votes must be a positive integer' });
+  }
+  if (!reason || reason.length > 500) {
+    return res.status(400).json({ message: 'A reason of 1 to 500 characters is required' });
+  }
+
+  let session;
+  try {
+    const competition = await resolveRequestCompetition(req);
+    session = await mongoose.startSession();
+    let contestant;
+    let transaction;
+
+    await session.withTransaction(async () => {
+      contestant = await Contestant.findOneAndUpdate(
+        { _id: req.params.id, competitionId: competition._id },
+        { $inc: { votes } },
+        { new: true, session }
+      );
+      if (!contestant) {
+        const error = new Error('Contestant not found');
+        error.status = 404;
+        throw error;
+      }
+
+      [transaction] = await Transaction.create([{
+        competitionId: competition._id,
+        txRef: `admin_${crypto.randomUUID()}`,
+        type: 'vote',
+        contestantId: contestant._id,
+        amount: 0,
+        method: 'admin_adjustment',
+        status: 'completed',
+        meta: {
+          adjustment: true,
+          votes,
+          reason,
+          adjustedBy: req.headers['x-admin-email'],
+        },
+      }], { session });
+    });
+
+    res.json({ message: 'Votes added', contestant, transaction });
+  } catch (error) {
+    res.status(error.status || 500).json({ message: 'Failed to add votes', error: error.message });
+  } finally {
+    if (session) await session.endSession();
+  }
+});
+
 // delete contestant
 router.delete('/contestants/:id', adminAuth, async (req, res) => {
   try {
@@ -288,7 +344,7 @@ router.patch('/contestants/:id', adminAuth, async (req, res) => {
     const contestant = await Contestant.findOne({ _id: req.params.id, competitionId: competition._id });
     if (!contestant) return res.status(404).json({ message: 'Contestant not found' });
 
-    const allowed = ['isApproved', 'entryPaid', 'firstName', 'lastName', 'photoTitle', 'photoDescription', 'category', 'uploadAllowance', 'status', 'votes'];
+    const allowed = ['isApproved', 'entryPaid', 'firstName', 'lastName', 'photoTitle', 'photoDescription', 'category', 'imageUrl', 'uploadAllowance', 'status'];
     allowed.forEach((k) => {
       if (Object.prototype.hasOwnProperty.call(req.body, k)) {
         contestant[k] = req.body[k];

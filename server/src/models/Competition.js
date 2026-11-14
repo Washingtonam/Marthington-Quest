@@ -33,8 +33,8 @@ competitionSchema.pre('validate', function () {
     this.slug = createSlug(this.title);
   }
 
-  if (this.startDate && this.endDate && this.endDate < this.startDate) {
-    this.invalidate('endDate', 'endDate must be on or after startDate');
+  if (this.startDate && this.endDate && this.endDate <= this.startDate) {
+    this.invalidate('endDate', 'End date must be after start date');
   }
 });
 

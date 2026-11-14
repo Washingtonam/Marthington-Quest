@@ -263,8 +263,8 @@ export default function CompetitionManagerPage() {
                     <tr key={competition._id}>
                       <td><Link className="admin-competition-link" href={`/admin/competitions/${competition._id}`}>{competition.title}<small>/{competition.slug}</small></Link></td>
                       <td><span className={`admin-status-pill admin-status-${competition.status}`}>{competition.status}</span></td>
-                      <td>{data?.totalContestants.toLocaleString() ?? '—'}{data?.pendingEntries ? <small className="admin-pending-note">{data.pendingEntries} awaiting review</small> : null}</td>
-                      <td>{data?.totalVotes.toLocaleString() ?? '—'}</td>
+                      <td><Link className="admin-table-metric-link" href={`/admin/competitions/${competition._id}?tab=entries`} aria-label={`Manage entries for ${competition.title}`}>{data?.totalContestants.toLocaleString() ?? '—'}</Link>{data?.pendingEntries ? <small className="admin-pending-note">{data.pendingEntries} awaiting review</small> : null}</td>
+                      <td><Link className="admin-table-metric-link" href={`/admin/competitions/${competition._id}?tab=voteAnalytics`} aria-label={`View votes for ${competition.title}`}>{data?.totalVotes.toLocaleString() ?? '—'}</Link></td>
                       <td>{data ? currency(data.totalRevenue) : '—'}</td>
                       <td><span>{formatDate(competition.startDate)}</span><small>to {formatDate(competition.endDate)}</small></td>
                       <td><Link className="admin-button admin-button-small" href={`/admin/competitions/${competition._id}`}>Manage <span aria-hidden="true">→</span></Link></td>
