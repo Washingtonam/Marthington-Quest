@@ -34,7 +34,6 @@ interface Stats {
   voteFee: number;
 }
 
-<<<<<<< HEAD
 const ADMIN_SESSION_KEY = 'marthington-admin-session';
 
 async function getApiError(response: Response): Promise<string> {
@@ -56,8 +55,6 @@ async function getAdminRequestError(resource: string, response: Response): Promi
   return `Could not load ${resource}: ${details}`;
 }
 
-=======
->>>>>>> washingtonam/main
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [pending, setPending] = useState<Contestant[]>([]);
@@ -66,10 +63,7 @@ export default function AdminPage() {
   const [status, setStatus] = useState('');
   const [adminToken, setAdminToken] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
-<<<<<<< HEAD
   const [authReady, setAuthReady] = useState(false);
-=======
->>>>>>> washingtonam/main
   const [settings, setSettings] = useState<any>(null);
   const [voteEdit, setVoteEdit] = useState<number>(0);
   const [timerStatusMessage, setTimerStatusMessage] = useState('');
@@ -91,11 +85,7 @@ export default function AdminPage() {
   };
 
   const loadAdminData = async () => {
-<<<<<<< HEAD
     if (!authReady || !adminToken || !adminEmail) return;
-=======
-    if (!adminToken || !adminEmail) return;
->>>>>>> washingtonam/main
 
     const headers = {
       Authorization: `Bearer ${adminToken}`,
@@ -109,15 +99,9 @@ export default function AdminPage() {
         fetch(`${apiBaseUrl}/api/admin/contestants`, { headers }),
       ]);
 
-<<<<<<< HEAD
       if (!statsRes.ok) throw new Error(await getAdminRequestError('dashboard statistics', statsRes));
       if (!pendingRes.ok) throw new Error(await getAdminRequestError('pending entries', pendingRes));
       if (!allRes.ok) throw new Error(await getAdminRequestError('contestants', allRes));
-=======
-      if (!statsRes.ok || !pendingRes.ok || !allRes.ok) {
-        throw new Error('Failed to load admin data');
-      }
->>>>>>> washingtonam/main
 
       setStats(await statsRes.json());
       setPending(await pendingRes.json());
@@ -129,21 +113,16 @@ export default function AdminPage() {
         setSelectedContestant(allContestants[0]);
       }
     } catch (error) {
-<<<<<<< HEAD
       const message = error instanceof Error ? error.message : 'Unable to load admin data';
       setStatus(
         error instanceof TypeError && error.message === 'Failed to fetch'
           ? `Error: Could not reach the admin API at ${apiBaseUrl}. Check the deployed API URL, server status, and CORS configuration.`
           : `Error: ${message}`
       );
-=======
-      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to load admin data'}`);
->>>>>>> washingtonam/main
     }
   };
 
   useEffect(() => {
-<<<<<<< HEAD
     try {
       const storedSession = window.sessionStorage.getItem(ADMIN_SESSION_KEY);
       if (storedSession) {
@@ -165,17 +144,13 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!authReady) return;
-=======
->>>>>>> washingtonam/main
     loadAdminData();
     const refresh = setInterval(() => {
       if (adminToken && adminEmail) {
         loadSettings();
       }
     }, 5000);
-
     return () => clearInterval(refresh);
-<<<<<<< HEAD
   }, [authReady, adminToken, adminEmail, apiBaseUrl]);
 
   const handleSignOut = () => {
@@ -193,9 +168,6 @@ export default function AdminPage() {
       setStatus('Could not clear the saved admin sign-in. Close this browser tab to end the session.');
     }
   };
-=======
-  }, [adminToken, adminEmail, apiBaseUrl]);
->>>>>>> washingtonam/main
 
   const handleApprove = async (id: string) => {
     if (!adminToken || !adminEmail) {
@@ -338,7 +310,6 @@ export default function AdminPage() {
       </div>
 
       <div className="card form-card">
-<<<<<<< HEAD
         {adminEmail ? (
           <div className="form-actions">
             <p className="muted">Signed in as {adminEmail}</p>
@@ -350,26 +321,6 @@ export default function AdminPage() {
             <a href="/admin-enter" className="btn-primary">Admin sign in</a>
           </div>
         )}
-=======
-        <label className="field">
-          Admin token
-          <input
-            type="password"
-            value={adminToken}
-            onChange={(event) => setAdminToken(event.target.value)}
-            placeholder="Enter admin token"
-          />
-        </label>
-        <label className="field">
-          Admin email
-          <input
-            type="email"
-            value={adminEmail}
-            onChange={(event) => setAdminEmail(event.target.value)}
-            placeholder="Enter your authorized admin email"
-          />
-        </label>
->>>>>>> washingtonam/main
       </div>
 
       {stats ? (
@@ -401,11 +352,7 @@ export default function AdminPage() {
         </div>
       ) : (
         <div className="card info-card">
-<<<<<<< HEAD
           <p>{adminEmail ? 'Dashboard data will appear here after loading.' : 'Sign in with your admin token and authorized email to load dashboard data.'}</p>
-=======
-          <p>Enter the admin token to load dashboard data.</p>
->>>>>>> washingtonam/main
         </div>
       )}
 

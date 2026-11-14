@@ -2,11 +2,8 @@
 
 import { FormEvent, useState } from 'react';
 
-<<<<<<< HEAD
 const ADMIN_SESSION_KEY = 'marthington-admin-session';
 
-=======
->>>>>>> washingtonam/main
 export default function AdminEntryPage() {
   const [token, setToken] = useState('');
   const [email, setEmail] = useState('');
@@ -27,7 +24,6 @@ export default function AdminEntryPage() {
       });
 
       if (!response.ok) {
-<<<<<<< HEAD
         let message = `Admin sign-in failed (${response.status})`;
         try {
           const errorData = await response.json();
@@ -50,15 +46,6 @@ export default function AdminEntryPage() {
             ? error.message
             : 'Unable to access admin portal'
       );
-=======
-        throw new Error('Invalid access token');
-      }
-
-      const data = await response.json();
-      window.location.href = data.redirect;
-    } catch (error) {
-      setStatus(error instanceof Error ? error.message : 'Unable to access admin portal');
->>>>>>> washingtonam/main
     } finally {
       setLoading(false);
     }
