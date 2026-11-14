@@ -7,6 +7,12 @@ import contestantsRouter from './routes/contestants.js';
 import adminRouter from './routes/admin.js';
 import paymentsRouter from './routes/payments.js';
 import settingsRouter from './routes/settings.js';
+import competitionsRouter from './routes/competitions.js';
+import migrateCompetitionData from './utils/migrateCompetitionData.js';
+import Competition from './models/Competition.js';
+import Contestant from './models/Contestant.js';
+import Transaction from './models/Transaction.js';
+import Settings from './models/Settings.js';
 
 dotenv.config();
 
@@ -35,7 +41,7 @@ app.use(
 app.use(
   express.json({
     verify: (req, res, buffer) => {
-      if (req.path === '/api/payments/flutterwave/webhook') {
+      if (req.path === '/api/payments/webhook' || req.path === '/api/payments/flutterwave/webhook') {
         req.rawBody = Buffer.from(buffer);
       }
     },
@@ -80,22 +86,35 @@ app.all('/admin-enter', (req, res) => {
   }
 
   const client = process.env.CLIENT_URL || 'http://localhost:3000';
-  return res.json({ redirect: `${client.replace(/\/$/, '')}/portal-47b2c` });
+  return res.json({ redirect: `${client.replace(/\/$/, '')}/admin/competitions` });
 });
 
 app.use('/api/contestants', contestantsRouter);
 app.use('/api/payments', paymentsRouter);
+app.use('/api/admin/competitions/:competitionId', adminRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/competitions', competitionsRouter);
 
 async function startServer() {
   try {
     if (process.env.MONGODB_URI) {
       try {
+        mongoose.set('autoIndex', false);
         await mongoose.connect(process.env.MONGODB_URI);
         console.log('MongoDB connected');
       } catch (dbError) {
         console.warn('MongoDB connection failed, continuing without DB:', dbError.message);
+      }
+      if (mongoose.connection.readyState === 1) {
+        await migrateCompetitionData();
+        await Promise.all([
+          Competition.createIndexes(),
+          Contestant.createIndexes(),
+          Transaction.createIndexes(),
+          Settings.createIndexes(),
+        ]);
+        console.log('Competition data migration complete');
       }
     } else {
       console.log('MONGODB_URI not set, continuing without DB connection');

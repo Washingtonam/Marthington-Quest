@@ -2,7 +2,17 @@
 
 import { useState } from 'react';
 
-export default function VoteForm({ contestantId, initialFee, disabled }: { contestantId: string; initialFee?: number; disabled?: boolean }) {
+export default function VoteForm({
+  contestantId,
+  competitionId,
+  initialFee,
+  disabled,
+}: {
+  contestantId: string;
+  competitionId: string;
+  initialFee?: number;
+  disabled?: boolean;
+}) {
   const [email, setEmail] = useState('');
   const [count, setCount] = useState(1);
   const [status, setStatus] = useState('');
@@ -26,6 +36,7 @@ export default function VoteForm({ contestantId, initialFee, disabled }: { conte
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            competitionId,
             contestantId,
             amount: 0,
             votes: Number(count),
@@ -52,6 +63,7 @@ export default function VoteForm({ contestantId, initialFee, disabled }: { conte
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          competitionId,
           amount,
           currency: 'NGN',
           customer_email: email,

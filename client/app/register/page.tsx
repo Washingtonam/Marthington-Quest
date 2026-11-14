@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import SupportAssistant from '../components/SupportAssistant';
 
-export default function RegisterPage() {
+export default function RegisterPage({ routeCompetitionSlug }: { routeCompetitionSlug?: string } = {}) {
+  const [competitionSlug, setCompetitionSlug] = useState<string | null | undefined>(undefined);
   const [formState, setFormState] = useState({
     email: '',
     firstName: '',
@@ -19,8 +20,15 @@ export default function RegisterPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState('');
   const [entryFee, setEntryFee] = useState<number | null>(null);
+  const [competitionTitle, setCompetitionTitle] = useState('Competition');
+  const [competitionAvailable, setCompetitionAvailable] = useState(false);
+  const [competitionMessage, setCompetitionMessage] = useState('Loading competition...');
 
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+  useEffect(() => {
+    setCompetitionSlug(routeCompetitionSlug ?? new URLSearchParams(window.location.search).get('competitionSlug'));
+  }, [routeCompetitionSlug]);
 
   const handleChange = (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -43,43 +51,83 @@ export default function RegisterPage() {
   useEffect(() => {
     async function loadSettings() {
       try {
-        const res = await fetch(`${apiBaseUrl}/api/settings`);
+        if (competitionSlug === undefined) return;
+        const effectiveCompetitionSlug = competitionSlug;
+        if (!effectiveCompetitionSlug) {
+          setCompetitionAvailable(false);
+          return;
+        }
+        const competitionQuery = `?competitionSlug=${encodeURIComponent(effectiveCompetitionSlug)}`;
+        const [res, competitionRes] = await Promise.all([
+          fetch(`${apiBaseUrl}/api/settings${competitionQuery}`),
+          fetch(`${apiBaseUrl}/api/competitions/${encodeURIComponent(effectiveCompetitionSlug)}`),
+        ]);
+        if (!competitionRes.ok) {
+          setCompetitionAvailable(false);
+          setCompetitionMessage('Competition not found or is not publicly available.');
+          return;
+        }
+        const competition = await competitionRes.json();
+        setCompetitionTitle(competition.title);
+        const now = Date.now();
+        const startsAt = competition.startDate ? new Date(competition.startDate).getTime() : null;
+        const endsAt = competition.endDate ? new Date(competition.endDate).getTime() : null;
+        const acceptingEntries =
+          competition.status === 'active' &&
+          (startsAt === null || startsAt <= now) &&
+          (endsAt === null || endsAt >= now);
+        setCompetitionAvailable(acceptingEntries);
+        setCompetitionMessage(
+          acceptingEntries
+            ? ''
+            : competition.status !== 'active'
+              ? 'This competition is not currently accepting entries.'
+              : startsAt !== null && startsAt > now
+                ? `Registration opens ${new Date(startsAt).toLocaleString()}.`
+                : 'The registration period has ended.'
+        );
+        setEntryFee(Number(competition.entryFee ?? 0));
         if (!res.ok) return;
         const data = await res.json();
-        setEntryFee(Number(data.entryFee ?? 0));
+        setEntryFee(Number(competition.entryFee ?? data.entryFee ?? 0));
       } catch {
-        // ignore
+        setCompetitionAvailable(false);
+        setCompetitionMessage('Unable to verify that this competition is accepting entries.');
       }
     }
 
     loadSettings();
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, competitionSlug]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!competitionAvailable) {
+      setStatus(competitionMessage || 'This competition is not currently accepting entries.');
+      return;
+    }
     setStatus('Preparing your registration...');
 
     try {
       let imageUrl = '';
-      if (file) {
-        const form = new FormData();
-        form.append('image', file);
+      if (!file) throw new Error('Please select a contestant photo');
+      const form = new FormData();
+      form.append('image', file);
 
-        const upRes = await fetch(`${apiBaseUrl}/api/contestants/upload`, {
-          method: 'POST',
-          body: form,
-        });
+      const upRes = await fetch(`${apiBaseUrl}/api/contestants/upload`, {
+        method: 'POST',
+        body: form,
+      });
 
-        if (!upRes.ok) {
-          const e = await upRes.json().catch(() => ({}));
-          throw new Error(e.message || 'Image upload failed');
-        }
-
-        const upData = await upRes.json();
-        imageUrl = upData.url;
+      if (!upRes.ok) {
+        const e = await upRes.json().catch(() => ({}));
+        throw new Error(e.message || 'Image upload failed');
       }
 
+      const upData = await upRes.json();
+      imageUrl = upData.url;
+
       const payload = {
+        competitionSlug,
         email: formState.email,
         firstName: formState.firstName,
         lastName: formState.lastName,
@@ -92,11 +140,14 @@ export default function RegisterPage() {
         imageUrl,
       };
 
-      const createRes = await fetch(`${apiBaseUrl}/api/contestants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const createRes = await fetch(
+        `${apiBaseUrl}/api/competitions/${encodeURIComponent(competitionSlug || 'marthington-baby-quest')}/contestants`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!createRes.ok) {
         const errorData = await createRes.json().catch(() => ({}));
@@ -104,13 +155,14 @@ export default function RegisterPage() {
       }
 
       const contestant = await createRes.json();
-      const effectiveEntryFee = entryFee ?? Number(process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA || '0');
+      const effectiveEntryFee = Number(contestant.entryFee ?? entryFee ?? process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA ?? '0');
 
       if (effectiveEntryFee === 0) {
         const freeRes = await fetch(`${apiBaseUrl}/api/payments/entry`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            competitionSlug,
             contestantId: contestant._id,
             amount: 0,
             method: 'free',
@@ -123,8 +175,8 @@ export default function RegisterPage() {
           throw new Error(freeData.message || 'Free entry registration failed');
         }
 
-        setStatus('Registration complete — no payment required. Redirecting to profile...');
-        window.location.href = contestant.shareUrl;
+        setStatus('Registration complete — no payment required. Returning to the competition...');
+        window.location.href = `/competitions/${encodeURIComponent(competitionSlug || '')}`;
         return;
       }
 
@@ -132,6 +184,7 @@ export default function RegisterPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          competitionSlug,
           amount: effectiveEntryFee,
           currency: 'NGN',
           customer_email: formState.email,
@@ -156,12 +209,15 @@ export default function RegisterPage() {
     <main className="page-shell">
       <div className="page-header">
         <div className="register-header">
-          <span className="eyebrow">Featured competition · Marthington Baby Quest</span>
+          <span className="eyebrow">{competitionTitle}</span>
           <h1>Register a contestant</h1>
           <p className="muted register-summary">
             Share your little star’s photo and story for a chance to win the title. Our registration process is fast, secure, and made for families.
           </p>
           <p className="muted register-fee">Entry fee: ₦{entryFee ?? process.env.NEXT_PUBLIC_ENTRY_FEE_NAIRA ?? '0'}</p>
+          {!competitionAvailable && (
+            <p className="status-message">{competitionMessage}</p>
+          )}
         </div>
       </div>
 
@@ -236,7 +292,7 @@ export default function RegisterPage() {
             <label className="field">
               Upload contestant photo
               <div className="file-input-wrapper">
-                <input type="file" accept="image/*" onChange={handleFile} />
+                <input type="file" accept="image/*" onChange={handleFile} required />
                 {preview && <img src={preview} className="preview-image" alt="preview" />}
               </div>
             </label>
@@ -247,7 +303,7 @@ export default function RegisterPage() {
             </label>
 
             <div className="form-actions register-actions">
-              <button type="submit" className="btn-primary">Continue</button>
+              <button type="submit" className="btn-primary" disabled={!competitionAvailable}>Continue</button>
             </div>
           </form>
 

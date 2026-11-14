@@ -1,27 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import SupportAssistant from './components/SupportAssistant';
-import VoteTimerStatus from './components/VoteTimerStatus';
 
 export default function HomePage() {
-  const [settings, setSettings] = useState<any>(null);
-  const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
-  useEffect(() => {
-    async function loadSettings() {
-      try {
-        const res = await fetch(`${apiBaseUrl}/api/settings`, { cache: 'no-store' });
-        if (res.ok) {
-          setSettings(await res.json());
-        }
-      } catch (e) {
-        // ignore
-      }
-    }
-    loadSettings();
-  }, [apiBaseUrl]);
-
   return (
     <main className="landing-page">
       <section className="hero">
@@ -29,12 +10,12 @@ export default function HomePage() {
           <span className="eyebrow">Welcome to Quest</span>
           <h1>Every competition deserves a moment in the spotlight.</h1>
           <p>
-            Discover competitions, meet the contestants, and support your favorites with a vote. Marthington Baby Quest is currently featured on Quest.
+            Discover competitions, meet their contestants, and support your favorites with a vote.
           </p>
 
           <div className="hero-cta">
-            <a className="btn-primary" href="/vote">Explore competitions</a>
-            <a className="btn-secondary" href="/register">Enter Baby Quest</a>
+            <a className="btn-primary" href="/competitions">Explore competitions</a>
+            <a className="btn-secondary" href="/competitions">Find a competition to enter</a>
           </div>
 
           <div style={{ marginTop: 18 }}>
@@ -44,11 +25,11 @@ export default function HomePage() {
 
         <aside className="hero-panel card">
           <div style={{ display: 'grid', gap: 12 }}>
-            <h2>Featured competition: Marthington Baby Quest</h2>
+            <h2>Find your next competition</h2>
             <ul className="feature-list" style={{ paddingLeft: 18, margin: 0 }}>
-              <li>Celebrate young contestants and share their stories</li>
-              <li>Support your favorites with online voting</li>
-              <li>Follow the competition leaderboard</li>
+              <li>Explore active competitions</li>
+              <li>Meet contestants and learn the rules</li>
+              <li>Register or vote in your chosen competition</li>
             </ul>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <div className="card" style={{ padding: 12, flex: 1 }}>
@@ -64,26 +45,14 @@ export default function HomePage() {
         </aside>
       </section>
 
-      {settings && (
-        <section style={{ marginTop: 24 }}>
-          <VoteTimerStatus
-            voteTimerOpen={settings.voteTimerOpen}
-            voteTimerStatus={settings.voteTimerEffectiveStatus || settings.voteTimerStatus}
-            voteTimerSeconds={settings.voteTimerSeconds}
-            voteTimerRemainingSeconds={settings.voteTimerRemainingSeconds}
-            voteTimerEndsAt={settings.voteTimerEndsAt}
-          />
-        </section>
-      )}
-
       <section style={{ display: 'grid', gap: 18, gridTemplateColumns: '1fr 1fr' }}>
-        <a href="/register" className="card link-card">
-          <h3>Enter Marthington Baby Quest</h3>
-          <p>Register a young contestant and share their story in our featured competition.</p>
+        <a href="/competitions" className="card link-card">
+          <h3>Find a competition to enter</h3>
+          <p>Browse active competitions and register directly with the competition you choose.</p>
         </a>
-        <a href="/vote" className="card link-card">
+        <a href="/competitions" className="card link-card">
           <h3>Explore and vote</h3>
-          <p>Browse contestants in Marthington Baby Quest and support your favorites.</p>
+          <p>Browse approved contestants and support your favorites in their competition galleries.</p>
         </a>
       </section>
 

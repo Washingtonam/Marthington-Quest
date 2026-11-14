@@ -4,6 +4,7 @@ import CopyShareLink from '../CopyShareLink';
 
 interface Contestant {
   _id: string;
+  competitionId: string;
   firstName: string;
   lastName: string;
   ageLabel: string;
@@ -19,33 +20,49 @@ interface Contestant {
   entryPaid: boolean;
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const entry = await fetchEntry(params.slug);
+export async function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { competitionId?: string };
+}): Promise<Metadata> {
+  const entry = await fetchEntry(params.slug, searchParams.competitionId);
   return {
     title: entry ? `${entry.photoTitle || `${entry.firstName} ${entry.lastName}`} · Marthington Quest` : 'Entry not found',
     description: entry ? `${entry.photoDescription}` : 'Photo entry page',
   };
 }
 
-async function fetchEntry(slug: string): Promise<Contestant | null> {
+async function fetchEntry(slug: string, competitionId?: string): Promise<Contestant | null> {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-  const resp = await fetch(`${apiBaseUrl}/api/contestants/slug/${slug}`, { cache: 'no-store' });
+  const competitionQuery = competitionId ? `?competitionId=${encodeURIComponent(competitionId)}` : '';
+  const resp = await fetch(`${apiBaseUrl}/api/contestants/slug/${slug}${competitionQuery}`, { cache: 'no-store' });
   if (!resp.ok) return null;
   return resp.json();
 }
 
-async function fetchSettings(): Promise<any> {
+async function fetchSettings(competitionId: string): Promise<any> {
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-  const resp = await fetch(`${apiBaseUrl}/api/settings`, { cache: 'no-store' });
+  const resp = await fetch(
+    `${apiBaseUrl}/api/settings?competitionId=${encodeURIComponent(competitionId)}`,
+    { cache: 'no-store' }
+  );
   if (!resp.ok) {
     return { entryFee: 0, voteFee: Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100) };
   }
   return resp.json();
 }
 
-export default async function EntryPage({ params }: { params: { slug: string } }) {
-  const contestant = await fetchEntry(params.slug);
-  const settings = await fetchSettings();
+export default async function EntryPage({
+  params,
+  searchParams,
+}: {
+  params: { slug: string };
+  searchParams: { competitionId?: string };
+}) {
+  const contestant = await fetchEntry(params.slug, searchParams.competitionId);
+  const settings = contestant ? await fetchSettings(contestant.competitionId) : {};
 
   if (!contestant) {
     return (
@@ -99,7 +116,11 @@ export default async function EntryPage({ params }: { params: { slug: string } }
             {canVote ? (
               <div id="vote-form">
                 <h4>Vote for this entry</h4>
-                <VoteForm contestantId={contestant._id} initialFee={voteFee} />
+                <VoteForm
+                  contestantId={contestant._id}
+                  competitionId={contestant.competitionId}
+                  initialFee={voteFee}
+                />
               </div>
             ) : (
               <div className="info-card card">

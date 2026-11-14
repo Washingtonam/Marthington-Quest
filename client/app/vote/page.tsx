@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 
 interface Contestant {
   _id: string;
+  competitionId: string;
   firstName: string;
   lastName: string;
   ageLabel: string;
@@ -18,8 +19,15 @@ interface Contestant {
   shareUrl?: string;
 }
 
+interface Competition {
+  status: 'draft' | 'active' | 'closed';
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
 function VotePageContent() {
   const searchParams = useSearchParams();
+  const competitionSlug = searchParams.get('competitionSlug');
   const [contestants, setContestants] = useState<Contestant[]>([]);
   const [selectedContestant, setSelectedContestant] = useState('');
   const [supporterEmail, setSupporterEmail] = useState('');
@@ -28,36 +36,46 @@ function VotePageContent() {
   const [voteFee, setVoteFee] = useState<number | null>(null);
   const [query, setQuery] = useState('');
   const [timer, setTimer] = useState<any>(null);
+  const [competition, setCompetition] = useState<Competition | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
   useEffect(() => {
     async function loadContestants() {
       try {
-        const response = await fetch(`${apiBaseUrl}/api/contestants?includePending=true`, { cache: 'no-store' });
+        const scopedCompetitionSlug = competitionSlug || 'marthington-baby-quest';
+        const encodedSlug = encodeURIComponent(scopedCompetitionSlug);
+        const response = await fetch(
+          `${apiBaseUrl}/api/competitions/${encodedSlug}/contestants`,
+          { cache: 'no-store' }
+        );
+        if (!response.ok) throw new Error('Unable to load contestants for this competition');
         const result = await response.json();
         setContestants(result || []);
-        // fetch public settings for fees and vote timer
-        try {
-          const s = await fetch(`${apiBaseUrl}/api/settings`);
-          if (s.ok) {
-            const sd = await s.json();
-            setVoteFee(Number(sd.voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? 100));
-            setTimer(sd);
-            setCountdown(sd.voteTimerRemainingSeconds ?? null);
-          }
-        } catch (e) {
-          // ignore
+        const [competitionResponse, settingsResponse] = await Promise.all([
+          fetch(`${apiBaseUrl}/api/competitions/${encodedSlug}`, { cache: 'no-store' }),
+          fetch(`${apiBaseUrl}/api/settings?competitionSlug=${encodedSlug}`, { cache: 'no-store' }),
+        ]);
+        if (!competitionResponse.ok || !settingsResponse.ok) {
+          throw new Error('Unable to load competition voting status');
         }
+        const [competitionData, settingsData] = await Promise.all([
+          competitionResponse.json(),
+          settingsResponse.json(),
+        ]);
+        setCompetition(competitionData);
+        setVoteFee(Number(settingsData.voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? 100));
+        setTimer(settingsData);
+        setCountdown(settingsData.voteTimerRemainingSeconds ?? null);
       } catch (error) {
-        setStatus('Unable to load contestants');
+        setStatus(error instanceof Error ? error.message : 'Unable to load contestants');
       }
     }
 
     loadContestants();
     const t = setInterval(loadContestants, 15000);
     return () => clearInterval(t);
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, competitionSlug]);
 
   useEffect(() => {
     const contestantId = searchParams?.get('contestantId');
@@ -93,6 +111,14 @@ function VotePageContent() {
       (!query || name.includes(query.toLowerCase()) || (c.photoTitle || '').toLowerCase().includes(query.toLowerCase()))
     );
   });
+  const now = Date.now();
+  const canVote = Boolean(
+    competition &&
+    competition.status === 'active' &&
+    timer?.voteTimerOpen &&
+    (!competition.startDate || new Date(competition.startDate).getTime() <= now) &&
+    (!competition.endDate || new Date(competition.endDate).getTime() >= now)
+  );
 
   const handleVote = async (e: any) => {
     e.preventDefault();
@@ -100,9 +126,13 @@ function VotePageContent() {
     if (!supporterEmail) return setStatus('Please enter your email to continue');
 
     const fee = voteFee ?? Number(process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA || 100);
+    if (!Number.isInteger(voteCount) || voteCount < 1) {
+      setStatus('Enter a positive whole number of votes');
+      return;
+    }
     const amount = Number(voteCount) * Number(fee);
 
-    if (timer && !timer.voteTimerOpen) {
+    if (!canVote) {
       setStatus('Voting is currently closed.');
       return;
     }
@@ -114,6 +144,7 @@ function VotePageContent() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            ...(competitionSlug ? { competitionSlug } : {}),
             contestantId: selectedContestant,
             amount: 0,
             votes: Number(voteCount),
@@ -143,7 +174,12 @@ function VotePageContent() {
         currency: 'NGN',
         customer_email: supporterEmail,
         payment_type: 'vote',
-        meta: { contestantId: selectedContestant, votes: Number(voteCount) },
+        meta: {
+          contestantId: selectedContestant,
+          votes: Number(voteCount),
+          ...(competitionSlug ? { competitionSlug } : {}),
+        },
+        ...(competitionSlug ? { competitionSlug } : {}),
       };
 
       const initRes = await fetch(`${apiBaseUrl}/api/payments/flutterwave/initialize`, {
@@ -183,6 +219,19 @@ function VotePageContent() {
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name or title" style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: 12, border: '1px solid #e6e6e6' }} />
           <div className="muted">Each vote: ₦{voteFee ?? process.env.NEXT_PUBLIC_VOTE_FEE_NAIRA ?? '100'}</div>
         </div>
+        {competition && !canVote && (
+          <div className="info-card card">
+            <p className="muted" style={{ margin: 0 }}>
+              {competition.status !== 'active'
+                ? 'This competition is not active.'
+                : competition.startDate && new Date(competition.startDate).getTime() > Date.now()
+                  ? `Voting opens ${new Date(competition.startDate).toLocaleString()}.`
+                  : competition.endDate && new Date(competition.endDate).getTime() < Date.now()
+                    ? 'This competition voting period has ended.'
+                    : 'Voting is currently closed by the competition timer.'}
+            </p>
+          </div>
+        )}
         {timer && (
           <div style={{ marginTop: 12 }}>
             <VoteTimerStatus
@@ -203,7 +252,16 @@ function VotePageContent() {
                 <strong>{c.photoTitle || `${c.firstName} ${c.lastName}`}</strong>
                 <div className="muted">{c.votes} votes</div>
                 <div style={{ marginTop: 8 }}>
-                  <a href={c.shareUrl || `/entry/${c.shareSlug}`} className="link-secondary">Open profile</a>
+                  <a
+                    href={
+                      c.shareSlug && competitionSlug
+                        ? `/competitions/${encodeURIComponent(competitionSlug)}/vote/${encodeURIComponent(c.shareSlug)}`
+                        : c.shareUrl || `/entry/${c.shareSlug}`
+                    }
+                    className="link-secondary"
+                  >
+                    Open profile
+                  </a>
                 </div>
               </div>
             </article>
@@ -213,7 +271,7 @@ function VotePageContent() {
         <div className="card form-card" style={{ maxWidth: 680 }}>
           <h3>Vote</h3>
           <p className="muted">Select a contestant from above to begin. Or paste a share URL.</p>
-          {timer && !timer.voteTimerOpen && (
+          {timer && !canVote && (
             <div className="info-card card" style={{ marginBottom: 16 }}>
               <p className="muted" style={{ margin: 0 }}>
                 Voting is currently closed. The timer controls are managed by the admin dashboard.
@@ -244,7 +302,7 @@ function VotePageContent() {
             </label>
 
             <div className="form-actions">
-              <button type="submit" className="btn-primary" disabled={timer && !timer.voteTimerOpen}>Pay and vote</button>
+              <button type="submit" className="btn-primary" disabled={!canVote}>Pay and vote</button>
             </div>
           </form>
           {status && <p className="status-message">{status}</p>}
@@ -255,6 +313,7 @@ function VotePageContent() {
       )}
     </main>
   );
+
 }
 
 

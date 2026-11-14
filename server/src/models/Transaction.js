@@ -2,6 +2,13 @@ import mongoose from 'mongoose';
 
 const transactionSchema = new mongoose.Schema(
   {
+    competitionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Competition',
+      required: true,
+      index: true,
+    },
+    txRef: { type: String, trim: true, unique: true, sparse: true },
     type: {
       type: String,
       enum: ['entry', 'vote', 'payout'],
@@ -25,9 +32,14 @@ const transactionSchema = new mongoose.Schema(
       enum: ['pending', 'completed', 'failed'],
       default: 'pending',
     },
-    metadata: {
-      type: Object,
+    meta: {
+      type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+    rawResponse: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: undefined,
     },
   },
   { timestamps: true }

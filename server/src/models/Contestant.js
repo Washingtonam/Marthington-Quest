@@ -11,6 +11,12 @@ function createSlug(text) {
 
 const contestantSchema = new mongoose.Schema(
   {
+    competitionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Competition',
+      required: true,
+      index: true,
+    },
     email: { type: String, required: true, trim: true, lowercase: true },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, trim: true, default: '' },
@@ -42,7 +48,7 @@ contestantSchema.pre('save', function (next) {
 
   if (!this.shareUrl && this.shareSlug) {
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-    this.shareUrl = `${clientUrl}/entry/${this.shareSlug}`;
+    this.shareUrl = `${clientUrl}/entry/${this.shareSlug}?competitionId=${this.competitionId}`;
   }
 
   next();

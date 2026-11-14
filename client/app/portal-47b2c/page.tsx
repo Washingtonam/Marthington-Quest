@@ -34,6 +34,21 @@ interface Stats {
   voteFee: number;
 }
 
+interface Competition {
+  _id: string;
+  title: string;
+  slug: string;
+  description: string;
+  bannerImage: string;
+  rules: string;
+  prizePool: number;
+  status: 'draft' | 'active' | 'closed';
+  entryFee: number;
+  voteFee: number;
+  startDate?: string;
+  endDate?: string;
+}
+
 const ADMIN_SESSION_KEY = 'marthington-admin-session';
 
 async function getApiError(response: Response): Promise<string> {
@@ -67,12 +82,37 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<any>(null);
   const [voteEdit, setVoteEdit] = useState<number>(0);
   const [timerStatusMessage, setTimerStatusMessage] = useState('');
+  const [competitions, setCompetitions] = useState<Competition[]>([]);
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState('');
+  const [competitionDraft, setCompetitionDraft] = useState({
+    title: '',
+    slug: '',
+    description: '',
+    rules: '',
+    prizePool: 0,
+    startDate: '',
+    endDate: '',
+  });
+  const [competitionEdit, setCompetitionEdit] = useState({
+    title: '',
+    description: '',
+    bannerImage: '',
+    rules: '',
+    prizePool: 0,
+    status: 'draft' as Competition['status'],
+    startDate: '',
+    endDate: '',
+  });
   const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+  const competitionAdminUrl = selectedCompetitionId
+    ? `${apiBaseUrl}/api/admin/competitions/${encodeURIComponent(selectedCompetitionId)}`
+    : '';
 
   const loadSettings = async () => {
     if (!adminToken || !adminEmail) return;
     try {
-      const settingsRes = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+      if (!competitionAdminUrl) return;
+      const settingsRes = await fetch(`${competitionAdminUrl}/settings`, {
         headers: { Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
       });
       if (settingsRes.ok) {
@@ -87,6 +127,42 @@ export default function AdminPage() {
   const loadAdminData = async () => {
     if (!authReady || !adminToken || !adminEmail) return;
 
+    if (!selectedCompetitionId) {
+      try {
+        const response = await fetch(`${apiBaseUrl}/api/admin/competitions`, {
+          headers: {
+            Authorization: `Bearer ${adminToken}`,
+            'x-admin-email': adminEmail,
+          },
+        });
+        if (!response.ok) throw new Error(await getAdminRequestError('competitions', response));
+        const availableCompetitions: Competition[] = await response.json();
+        setCompetitions(availableCompetitions);
+        const defaultCompetition =
+          availableCompetitions.find((competition) => competition.slug === 'marthington-baby-quest') ||
+          availableCompetitions[0];
+        if (!defaultCompetition) {
+          setStatus('No active competitions are available to manage.');
+          return;
+        }
+        setCompetitionEdit({
+          title: defaultCompetition.title,
+          description: defaultCompetition.description || '',
+          bannerImage: defaultCompetition.bannerImage || '',
+          rules: defaultCompetition.rules || '',
+          prizePool: Number(defaultCompetition.prizePool || 0),
+          status: defaultCompetition.status,
+          startDate: defaultCompetition.startDate ? new Date(defaultCompetition.startDate).toISOString().slice(0, 16) : '',
+          endDate: defaultCompetition.endDate ? new Date(defaultCompetition.endDate).toISOString().slice(0, 16) : '',
+        });
+        setSelectedCompetitionId(defaultCompetition._id);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to load competitions';
+        setStatus(`Error: ${message}`);
+      }
+      return;
+    }
+
     const headers = {
       Authorization: `Bearer ${adminToken}`,
       'x-admin-email': adminEmail,
@@ -94,9 +170,9 @@ export default function AdminPage() {
 
     try {
       const [statsRes, pendingRes, allRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/api/admin/stats`, { headers }),
-        fetch(`${apiBaseUrl}/api/admin/contestants/pending`, { headers }),
-        fetch(`${apiBaseUrl}/api/admin/contestants`, { headers }),
+        fetch(`${competitionAdminUrl}/stats`, { headers }),
+        fetch(`${competitionAdminUrl}/contestants/pending`, { headers }),
+        fetch(`${competitionAdminUrl}/contestants`, { headers }),
       ]);
 
       if (!statsRes.ok) throw new Error(await getAdminRequestError('dashboard statistics', statsRes));
@@ -151,7 +227,7 @@ export default function AdminPage() {
       }
     }, 5000);
     return () => clearInterval(refresh);
-  }, [authReady, adminToken, adminEmail, apiBaseUrl]);
+  }, [authReady, adminToken, adminEmail, apiBaseUrl, selectedCompetitionId, competitionAdminUrl]);
 
   const handleSignOut = () => {
     try {
@@ -163,9 +239,80 @@ export default function AdminPage() {
       setContestants([]);
       setSelectedContestant(null);
       setSettings(null);
+      setCompetitions([]);
+      setSelectedCompetitionId('');
       setStatus('Signed out.');
     } catch {
       setStatus('Could not clear the saved admin sign-in. Close this browser tab to end the session.');
+    }
+  };
+
+  const handleCreateCompetition = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/competitions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+          'x-admin-email': adminEmail,
+        },
+        body: JSON.stringify({
+          ...competitionDraft,
+          startDate: competitionDraft.startDate ? new Date(competitionDraft.startDate).toISOString() : null,
+          endDate: competitionDraft.endDate ? new Date(competitionDraft.endDate).toISOString() : null,
+          status: 'draft',
+        }),
+      });
+      if (!response.ok) throw new Error((await response.json()).message || 'Failed to create competition');
+      const competition: Competition = await response.json();
+      setCompetitionDraft({ title: '', slug: '', description: '', rules: '', prizePool: 0, startDate: '', endDate: '' });
+      setCompetitions((current) => [competition, ...current]);
+      setSelectedCompetitionId(competition._id);
+      setCompetitionEdit({
+        title: competition.title,
+        description: competition.description || '',
+        bannerImage: competition.bannerImage || '',
+        rules: competition.rules || '',
+        prizePool: Number(competition.prizePool || 0),
+        status: competition.status,
+        startDate: competition.startDate ? new Date(competition.startDate).toISOString().slice(0, 16) : '',
+        endDate: competition.endDate ? new Date(competition.endDate).toISOString().slice(0, 16) : '',
+      });
+      setStatus('Competition created as a draft.');
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to create competition'}`);
+    }
+  };
+
+  const handleSaveCompetition = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!adminToken || !adminEmail || !selectedCompetitionId) {
+      return setStatus('Select a competition and sign in as admin');
+    }
+
+    try {
+      const response = await fetch(`${competitionAdminUrl}/competition`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+          'x-admin-email': adminEmail,
+        },
+        body: JSON.stringify({
+          ...competitionEdit,
+          startDate: competitionEdit.startDate ? new Date(competitionEdit.startDate).toISOString() : null,
+          endDate: competitionEdit.endDate ? new Date(competitionEdit.endDate).toISOString() : null,
+        }),
+      });
+      if (!response.ok) throw new Error((await response.json()).message || 'Failed to update competition');
+      const { competition } = await response.json();
+      setCompetitions((current) => current.map((item) => item._id === competition._id ? competition : item));
+      setStatus('Competition details updated.');
+    } catch (error) {
+      setStatus(`Error: ${error instanceof Error ? error.message : 'Unable to update competition'}`);
     }
   };
 
@@ -176,7 +323,7 @@ export default function AdminPage() {
     }
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}/approve`, {
+      const response = await fetch(`${competitionAdminUrl}/contestants/${id}/approve`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -206,7 +353,7 @@ export default function AdminPage() {
   const handleSaveSettings = async () => {
     if (!adminToken || !adminEmail || !settings) return setStatus('Admin token and email required');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+      const res = await fetch(`${competitionAdminUrl}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         body: JSON.stringify({
@@ -228,7 +375,7 @@ export default function AdminPage() {
     setTimerStatusMessage('Updating timer...');
 
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/settings`, {
+      const res = await fetch(`${competitionAdminUrl}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         body: JSON.stringify({
@@ -247,7 +394,7 @@ export default function AdminPage() {
   const handleTogglePaid = async (id: string, current: boolean) => {
     if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}`, {
+      const res = await fetch(`${competitionAdminUrl}/contestants/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         body: JSON.stringify({ entryPaid: !current }),
@@ -264,7 +411,7 @@ export default function AdminPage() {
     if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
     if (!confirm('Delete this contestant? This action cannot be undone.')) return;
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}`, {
+      const res = await fetch(`${competitionAdminUrl}/contestants/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
       });
@@ -286,7 +433,7 @@ export default function AdminPage() {
   const handleUpdateVotes = async (id: string) => {
     if (!adminToken || !adminEmail) return setStatus('Admin token and email required');
     try {
-      const res = await fetch(`${apiBaseUrl}/api/admin/contestants/${id}`, {
+      const res = await fetch(`${competitionAdminUrl}/contestants/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, 'x-admin-email': adminEmail },
         body: JSON.stringify({ votes: Number(voteEdit) }),
@@ -306,8 +453,183 @@ export default function AdminPage() {
           <p className="eyebrow">Admin dashboard</p>
           <h1>Manage the competition</h1>
           <p className="muted">Approve entries, inspect contestant profiles, and review platform details.</p>
+          {competitions.length > 0 && (
+            <label className="field">
+              Competition
+              <select
+                value={selectedCompetitionId}
+                onChange={(event) => {
+                  const competitionId = event.target.value;
+                  const competition = competitions.find((item) => item._id === competitionId);
+                  setSelectedCompetitionId(competitionId);
+                  if (competition) {
+                    setCompetitionEdit({
+                      title: competition.title,
+                      description: competition.description || '',
+                      bannerImage: competition.bannerImage || '',
+                      rules: competition.rules || '',
+                      prizePool: Number(competition.prizePool || 0),
+                      status: competition.status,
+                      startDate: competition.startDate ? new Date(competition.startDate).toISOString().slice(0, 16) : '',
+                      endDate: competition.endDate ? new Date(competition.endDate).toISOString().slice(0, 16) : '',
+                    });
+                  }
+                  setSelectedContestant(null);
+                  setStats(null);
+                  setStatus('');
+                }}
+              >
+                {competitions.map((competition) => (
+                  <option value={competition._id} key={competition._id}>{competition.title}</option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
+
+      {adminEmail && (
+        <div className="admin-grid">
+          <form className="card form-card input-grid" onSubmit={handleCreateCompetition}>
+            <h2>Create a competition</h2>
+            <label className="field">
+              Title
+              <input
+                value={competitionDraft.title}
+                onChange={(event) => setCompetitionDraft({ ...competitionDraft, title: event.target.value })}
+                required
+              />
+            </label>
+            <label className="field">
+              Slug (optional)
+              <input
+                value={competitionDraft.slug}
+                onChange={(event) => setCompetitionDraft({ ...competitionDraft, slug: event.target.value })}
+                placeholder="Generated from title if empty"
+              />
+            </label>
+            <label className="field">
+              Description
+              <textarea
+                value={competitionDraft.description}
+                onChange={(event) => setCompetitionDraft({ ...competitionDraft, description: event.target.value })}
+                rows={3}
+              />
+            </label>
+            <label className="field">
+              Rules
+              <textarea
+                value={competitionDraft.rules}
+                onChange={(event) => setCompetitionDraft({ ...competitionDraft, rules: event.target.value })}
+                rows={4}
+              />
+            </label>
+            <label className="field">
+              Prize pool (₦)
+              <input
+                type="number"
+                min={0}
+                value={competitionDraft.prizePool}
+                onChange={(event) => setCompetitionDraft({ ...competitionDraft, prizePool: Number(event.target.value) })}
+              />
+            </label>
+            <label className="field">
+              Start date
+              <input
+                type="datetime-local"
+                value={competitionDraft.startDate}
+                onChange={(event) => setCompetitionDraft({ ...competitionDraft, startDate: event.target.value })}
+              />
+            </label>
+            <label className="field">
+              End date
+              <input
+                type="datetime-local"
+                value={competitionDraft.endDate}
+                onChange={(event) => setCompetitionDraft({ ...competitionDraft, endDate: event.target.value })}
+              />
+            </label>
+            <button type="submit" className="btn-primary">Create draft competition</button>
+          </form>
+
+          {selectedCompetitionId && (
+            <form className="card form-card input-grid" onSubmit={handleSaveCompetition}>
+              <h2>Competition details</h2>
+              <label className="field">
+                Title
+                <input
+                  value={competitionEdit.title}
+                  onChange={(event) => setCompetitionEdit({ ...competitionEdit, title: event.target.value })}
+                  required
+                />
+              </label>
+              <label className="field">
+                Description
+                <textarea
+                  value={competitionEdit.description}
+                  onChange={(event) => setCompetitionEdit({ ...competitionEdit, description: event.target.value })}
+                  rows={3}
+                />
+              </label>
+              <label className="field">
+                Banner image URL
+                <input
+                  value={competitionEdit.bannerImage}
+                  onChange={(event) => setCompetitionEdit({ ...competitionEdit, bannerImage: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                Rules
+                <textarea
+                  value={competitionEdit.rules}
+                  onChange={(event) => setCompetitionEdit({ ...competitionEdit, rules: event.target.value })}
+                  rows={4}
+                />
+              </label>
+              <label className="field">
+                Prize pool (₦)
+                <input
+                  type="number"
+                  min={0}
+                  value={competitionEdit.prizePool}
+                  onChange={(event) => setCompetitionEdit({ ...competitionEdit, prizePool: Number(event.target.value) })}
+                />
+              </label>
+              <label className="field">
+                Status
+                <select
+                  value={competitionEdit.status}
+                  onChange={(event) => setCompetitionEdit({
+                    ...competitionEdit,
+                    status: event.target.value as Competition['status'],
+                  })}
+                >
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="closed">Closed</option>
+                </select>
+              </label>
+              <label className="field">
+                Start date
+                <input
+                  type="datetime-local"
+                  value={competitionEdit.startDate}
+                  onChange={(event) => setCompetitionEdit({ ...competitionEdit, startDate: event.target.value })}
+                />
+              </label>
+              <label className="field">
+                End date
+                <input
+                  type="datetime-local"
+                  value={competitionEdit.endDate}
+                  onChange={(event) => setCompetitionEdit({ ...competitionEdit, endDate: event.target.value })}
+                />
+              </label>
+              <button type="submit" className="btn-primary">Save competition details</button>
+            </form>
+          )}
+        </div>
+      )}
 
       <div className="card form-card">
         {adminEmail ? (

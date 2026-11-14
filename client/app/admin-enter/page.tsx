@@ -37,7 +37,7 @@ export default function AdminEntryPage() {
       }
 
       window.sessionStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify({ token, email }));
-      window.location.assign('/portal-47b2c');
+      window.location.assign('/admin/competitions');
     } catch (error) {
       setStatus(
         error instanceof TypeError && error.message === 'Failed to fetch'

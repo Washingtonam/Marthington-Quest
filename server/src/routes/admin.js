@@ -1,10 +1,104 @@
 import express from 'express';
 import Contestant from '../models/Contestant.js';
 import Transaction from '../models/Transaction.js';
+import Competition from '../models/Competition.js';
 import Settings from '../models/Settings.js';
 import adminAuth from '../middleware/adminAuth.js';
+import { resolveRequestCompetition } from '../utils/competitionContext.js';
+import getCompetitionSettings from '../utils/competitionSettings.js';
 
-const router = express.Router();
+const router = express.Router({ mergeParams: true });
+
+router.get('/competitions', adminAuth, async (req, res) => {
+  try {
+    if (req.params.competitionId) {
+      const competition = await resolveRequestCompetition(req);
+      return res.json([competition]);
+    }
+    const competitions = await Competition.find().sort({ createdAt: -1 });
+    res.json(competitions);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch competitions', error: error.message });
+  }
+});
+
+router.get('/competitions/summary', adminAuth, async (req, res) => {
+  try {
+    const competitions = await Competition.find().select('_id status').lean();
+    const competitionIds = competitions.map((competition) => competition._id);
+    const [contestantTotals, revenueTotals] = await Promise.all([
+      Contestant.aggregate([
+        { $match: { competitionId: { $in: competitionIds } } },
+        {
+          $group: {
+            _id: '$competitionId',
+            totalContestants: { $sum: 1 },
+            pendingEntries: {
+              $sum: {
+                $cond: [
+                  { $and: [{ $eq: ['$isApproved', false] }, { $ne: ['$status', 'rejected'] }] },
+                  1,
+                  0,
+                ],
+              },
+            },
+            totalVotes: { $sum: '$votes' },
+          },
+        },
+      ]),
+      Transaction.aggregate([
+        {
+          $match: {
+            competitionId: { $in: competitionIds },
+            status: 'completed',
+            type: { $in: ['entry', 'vote'] },
+          },
+        },
+        { $group: { _id: '$competitionId', totalRevenue: { $sum: '$amount' } } },
+      ]),
+    ]);
+
+    const statistics = {};
+    for (const row of contestantTotals) {
+      statistics[String(row._id)] = {
+        totalContestants: row.totalContestants,
+        pendingEntries: row.pendingEntries,
+        totalVotes: row.totalVotes,
+        totalRevenue: 0,
+      };
+    }
+    for (const row of revenueTotals) {
+      const competitionId = String(row._id);
+      statistics[competitionId] = {
+        totalContestants: statistics[competitionId]?.totalContestants || 0,
+        pendingEntries: statistics[competitionId]?.pendingEntries || 0,
+        totalVotes: statistics[competitionId]?.totalVotes || 0,
+        totalRevenue: row.totalRevenue,
+      };
+    }
+
+    const totals = competitions.reduce(
+      (result, competition) => {
+        const stats = statistics[String(competition._id)] || {
+          totalContestants: 0,
+          pendingEntries: 0,
+          totalVotes: 0,
+          totalRevenue: 0,
+        };
+        result.totalContestants += stats.totalContestants;
+        result.totalVotes += stats.totalVotes;
+        result.totalRevenue += stats.totalRevenue;
+        if (competition.status === 'active') result.activeCompetitions += 1;
+        return result;
+      },
+      { activeCompetitions: 0, totalContestants: 0, totalVotes: 0, totalRevenue: 0 }
+    );
+
+    res.json({ competitions: statistics, totals });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch competition summary', error: error.message });
+  }
+});
 
 function computeVoteTimerSettings(settings) {
   const voteTimerSeconds = Number(settings.voteTimerSeconds || 0);
@@ -51,20 +145,25 @@ function computeVoteTimerSettings(settings) {
 
 router.get('/stats', adminAuth, async (req, res) => {
   try {
-    const totalContestants = await Contestant.countDocuments();
-    const pendingEntries = await Contestant.countDocuments({ isApproved: false });
-    const approvedEntries = await Contestant.countDocuments({ isApproved: true });
+    const competition = await resolveRequestCompetition(req);
+    const contestantFilter = { competitionId: competition._id };
+    const totalContestants = await Contestant.countDocuments(contestantFilter);
+    const pendingEntries = await Contestant.countDocuments({
+      ...contestantFilter,
+      isApproved: false,
+      status: { $ne: 'rejected' },
+    });
+    const approvedEntries = await Contestant.countDocuments({ ...contestantFilter, isApproved: true });
     const votesResult = await Contestant.aggregate([
+      { $match: contestantFilter },
       { $group: { _id: null, total: { $sum: '$votes' } } },
     ]);
     const revenueResult = await Transaction.aggregate([
+      { $match: { competitionId: competition._id, status: 'completed', type: { $in: ['entry', 'vote'] } } },
       { $group: { _id: null, amount: { $sum: '$amount' } } },
     ]);
 
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create({});
-    }
+    const settings = await getCompetitionSettings(competition);
 
     res.json({
       totalContestants,
@@ -72,17 +171,86 @@ router.get('/stats', adminAuth, async (req, res) => {
       approvedEntries,
       totalVotes: votesResult[0]?.total || 0,
       totalRevenue: revenueResult[0]?.amount || 0,
-      entryFee: Number(settings.entryFee || process.env.ENTRY_FEE_NAIRA || 0),
-      voteFee: Number(settings.voteFee || process.env.VOTE_FEE_NAIRA || 0),
+      entryFee: Number(settings.entryFee ?? process.env.ENTRY_FEE_NAIRA ?? 0),
+      voteFee: Number(settings.voteFee ?? process.env.VOTE_FEE_NAIRA ?? 0),
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch admin stats', error: error.message });
   }
 });
 
+router.get('/transactions', adminAuth, async (req, res) => {
+  try {
+    const competition = await resolveRequestCompetition(req);
+    const transactions = await Transaction.find({ competitionId: competition._id })
+      .sort({ createdAt: -1 })
+      .limit(500)
+      .populate('contestantId', 'firstName lastName shareSlug');
+    res.json(transactions);
+  } catch (error) {
+    res.status(error.status || 500).json({ message: 'Failed to fetch transactions', error: error.message });
+  }
+});
+
+router.get('/competition', adminAuth, async (req, res) => {
+  try {
+    const competition = await resolveRequestCompetition(req);
+    res.json(competition);
+  } catch (error) {
+    res.status(error.status || 500).json({ message: 'Failed to fetch competition', error: error.message });
+  }
+});
+
+router.patch('/competition', adminAuth, async (req, res) => {
+  try {
+    const competition = await resolveRequestCompetition(req);
+    const allowed = ['title', 'description', 'bannerImage', 'rules', 'entryFee', 'voteFee', 'prizePool', 'status', 'startDate', 'endDate'];
+    for (const key of allowed) {
+      if (Object.prototype.hasOwnProperty.call(req.body, key)) {
+        if (['entryFee', 'voteFee', 'prizePool'].includes(key)) {
+          const value = Number(req.body[key]);
+          if (!Number.isFinite(value) || value < 0) {
+            return res.status(400).json({ message: `${key} must be a non-negative number` });
+          }
+          competition[key] = value;
+          continue;
+        }
+        competition[key] = req.body[key];
+      }
+    }
+    const settings = await getCompetitionSettings(competition);
+    settings.entryFee = competition.entryFee;
+    settings.voteFee = competition.voteFee;
+    await Promise.all([competition.save(), settings.save()]);
+    res.json({ message: 'Competition updated', competition });
+  } catch (error) {
+    res.status(error.status || 400).json({ message: 'Failed to update competition', error: error.message });
+  }
+});
+
+router.delete('/competition', adminAuth, async (req, res) => {
+  try {
+    const competition = await resolveRequestCompetition(req);
+    await Promise.all([
+      Contestant.deleteMany({ competitionId: competition._id }),
+      Transaction.deleteMany({ competitionId: competition._id }),
+      Settings.deleteOne({ competitionId: competition._id }),
+    ]);
+    await competition.deleteOne();
+    res.status(204).end();
+  } catch (error) {
+    res.status(error.status || 500).json({ message: 'Failed to delete competition', error: error.message });
+  }
+});
+
 router.get('/contestants/pending', adminAuth, async (req, res) => {
   try {
-    const contestants = await Contestant.find({ isApproved: false }).sort({ createdAt: -1 });
+    const competition = await resolveRequestCompetition(req);
+    const contestants = await Contestant.find({
+      competitionId: competition._id,
+      isApproved: false,
+      status: { $ne: 'rejected' },
+    }).sort({ createdAt: -1 });
     res.json(contestants);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch pending contestants', error: error.message });
@@ -91,7 +259,8 @@ router.get('/contestants/pending', adminAuth, async (req, res) => {
 
 router.get('/contestants', adminAuth, async (req, res) => {
   try {
-    const contestants = await Contestant.find().sort({ createdAt: -1 });
+    const competition = await resolveRequestCompetition(req);
+    const contestants = await Contestant.find({ competitionId: competition._id }).sort({ createdAt: -1 });
     res.json(contestants);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch contestants', error: error.message });
@@ -101,7 +270,8 @@ router.get('/contestants', adminAuth, async (req, res) => {
 // delete contestant
 router.delete('/contestants/:id', adminAuth, async (req, res) => {
   try {
-    const contestant = await Contestant.findById(req.params.id);
+    const competition = await resolveRequestCompetition(req);
+    const contestant = await Contestant.findOne({ _id: req.params.id, competitionId: competition._id });
     if (!contestant) return res.status(404).json({ message: 'Contestant not found' });
 
     await contestant.deleteOne();
@@ -114,7 +284,8 @@ router.delete('/contestants/:id', adminAuth, async (req, res) => {
 // update contestant (patch fields)
 router.patch('/contestants/:id', adminAuth, async (req, res) => {
   try {
-    const contestant = await Contestant.findById(req.params.id);
+    const competition = await resolveRequestCompetition(req);
+    const contestant = await Contestant.findOne({ _id: req.params.id, competitionId: competition._id });
     if (!contestant) return res.status(404).json({ message: 'Contestant not found' });
 
     const allowed = ['isApproved', 'entryPaid', 'firstName', 'lastName', 'photoTitle', 'photoDescription', 'category', 'uploadAllowance', 'status', 'votes'];
@@ -134,10 +305,8 @@ router.patch('/contestants/:id', adminAuth, async (req, res) => {
 // settings GET/PATCH
 router.get('/settings', adminAuth, async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create({});
-    }
+    const competition = await resolveRequestCompetition(req);
+    const settings = await getCompetitionSettings(competition);
     res.json({ ...settings.toObject(), ...computeVoteTimerSettings(settings) });
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch settings', error: error.message });
@@ -146,14 +315,18 @@ router.get('/settings', adminAuth, async (req, res) => {
 
 router.patch('/settings', adminAuth, async (req, res) => {
   try {
-    let settings = await Settings.findOne();
-    if (!settings) {
-      settings = await Settings.create({});
-    }
+    const competition = await resolveRequestCompetition(req);
+    const settings = await getCompetitionSettings(competition);
 
     const { entryFee, voteFee, voteTimerSeconds, voteTimerAction } = req.body;
-    if (typeof entryFee === 'number') settings.entryFee = entryFee;
-    if (typeof voteFee === 'number') settings.voteFee = voteFee;
+    if (typeof entryFee === 'number') {
+      settings.entryFee = entryFee;
+      competition.entryFee = entryFee;
+    }
+    if (typeof voteFee === 'number') {
+      settings.voteFee = voteFee;
+      competition.voteFee = voteFee;
+    }
     if (typeof voteTimerSeconds === 'number') settings.voteTimerSeconds = voteTimerSeconds;
 
     const now = new Date();
@@ -181,7 +354,7 @@ router.patch('/settings', adminAuth, async (req, res) => {
       settings.voteTimerElapsedSeconds = 0;
     }
 
-    await settings.save();
+    await Promise.all([settings.save(), competition.save()]);
     res.json({ message: 'Settings updated', settings: { ...settings.toObject(), ...computeVoteTimerSettings(settings) } });
   } catch (error) {
     res.status(500).json({ message: 'Failed to update settings', error: error.message });
@@ -190,7 +363,8 @@ router.patch('/settings', adminAuth, async (req, res) => {
 
 router.get('/contestants/:id', adminAuth, async (req, res) => {
   try {
-    const contestant = await Contestant.findById(req.params.id);
+    const competition = await resolveRequestCompetition(req);
+    const contestant = await Contestant.findOne({ _id: req.params.id, competitionId: competition._id });
     if (!contestant) {
       return res.status(404).json({ message: 'Contestant not found' });
     }
@@ -203,7 +377,8 @@ router.get('/contestants/:id', adminAuth, async (req, res) => {
 
 router.patch('/contestants/:id/approve', adminAuth, async (req, res) => {
   try {
-    const contestant = await Contestant.findById(req.params.id);
+    const competition = await resolveRequestCompetition(req);
+    const contestant = await Contestant.findOne({ _id: req.params.id, competitionId: competition._id });
     if (!contestant) {
       return res.status(404).json({ message: 'Contestant not found' });
     }
@@ -214,6 +389,23 @@ router.patch('/contestants/:id/approve', adminAuth, async (req, res) => {
     res.json({ message: 'Contestant approved', contestant });
   } catch (error) {
     res.status(500).json({ message: 'Failed to approve contestant', error: error.message });
+  }
+});
+
+router.patch('/contestants/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const competition = await resolveRequestCompetition(req);
+    const contestant = await Contestant.findOne({ _id: req.params.id, competitionId: competition._id });
+    if (!contestant) {
+      return res.status(404).json({ message: 'Contestant not found' });
+    }
+
+    contestant.isApproved = false;
+    contestant.status = 'rejected';
+    await contestant.save();
+    res.json({ message: 'Contestant rejected', contestant });
+  } catch (error) {
+    res.status(error.status || 500).json({ message: 'Failed to reject contestant', error: error.message });
   }
 });
 

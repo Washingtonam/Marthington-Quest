@@ -2,6 +2,12 @@ import mongoose from 'mongoose';
 
 const settingsSchema = new mongoose.Schema(
   {
+    competitionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Competition',
+      required: true,
+      unique: true,
+    },
     entryFee: { type: Number, default: Number(process.env.ENTRY_FEE_NAIRA || 0) },
     voteFee: { type: Number, default: Number(process.env.VOTE_FEE_NAIRA || 0) },
     voteTimerSeconds: { type: Number, default: 0 },

@@ -14,8 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="site-header">
             <a className="brand" href="/">Quest</a>
             <nav className="nav-links">
-              <a href="/register">Register</a>
-              <a href="/vote">Vote</a>
+              <a href="/competitions">Competitions</a>
               <a href="/api-test">API Test</a>
             </nav>
           </header>
@@ -25,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <footer className="site-footer">
             <div className="footer-brand">
               <strong>Quest</strong>
-              <p>An online home for competitions and community voting, starting with Marthington Baby Quest.</p>
+              <p>An online home for competitions and community voting.</p>
             </div>
             <div className="footer-links">
               <a href="/about-us">About us</a>
