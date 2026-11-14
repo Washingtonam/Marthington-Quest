@@ -2,8 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Marthington Baby Quest',
-  description: 'A modern baby competition platform',
+  title: 'Quest | Online Voting Competitions',
+  description: 'Discover competitions, support your favorites, and cast your vote on Quest.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="app-shell">
           <header className="site-header">
-            <a className="brand" href="/">Marthington Baby Quest</a>
+            <a className="brand" href="/">Quest</a>
             <nav className="nav-links">
               <a href="/register">Register</a>
               <a href="/vote">Vote</a>
@@ -24,8 +24,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <footer className="site-footer">
             <div className="footer-brand">
-              <strong>Marthington Baby Quest</strong>
-              <p>Family-first celebration for adorable contestants in Abuja.</p>
+              <strong>Quest</strong>
+              <p>An online home for competitions and community voting, starting with Marthington Baby Quest.</p>
             </div>
             <div className="footer-links">
               <a href="/about-us">About us</a>

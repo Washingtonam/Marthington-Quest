@@ -156,7 +156,7 @@ export default function RegisterPage() {
     <main className="page-shell">
       <div className="page-header">
         <div className="register-header">
-          <span className="eyebrow">Marthington Baby Quest</span>
+          <span className="eyebrow">Featured competition · Marthington Baby Quest</span>
           <h1>Register a contestant</h1>
           <p className="muted register-summary">
             Share your little star’s photo and story for a chance to win the title. Our registration process is fast, secure, and made for families.

@@ -1,8 +1,8 @@
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Terms and Conditions | Marthington Baby Quest',
-  description: 'Legal terms and conditions for using Marthington Baby Quest.',
+  title: 'Terms and Conditions | Quest',
+  description: 'Legal terms and conditions for using the Quest voting platform.',
 };
 
 export default function TermsPage() {
@@ -12,33 +12,33 @@ export default function TermsPage() {
         <p className="eyebrow">Legal terms</p>
         <h1>Terms and Conditions</h1>
         <p className="muted">
-          These Terms and Conditions (“Terms”) govern your use of the Marthington Baby Quest website, mobile experience, entry registration flow, voting platform, and related services (collectively, the “Platform”). By accessing or using the Platform, you acknowledge that you have read, understood, and agreed to be bound by these Terms.
+          These Terms and Conditions (“Terms”) govern your use of Quest, including its website, competition entries, voting features, and related services (collectively, the “Platform”). Individual competitions featured on the Platform may also have additional rules or eligibility requirements. By accessing or using the Platform, you acknowledge that you have read, understood, and agreed to be bound by these Terms.
         </p>
 
         <div className="policy-content">
           <h2>1. Acceptance of Terms</h2>
           <p>
-            Marthington Baby Quest is operated by Marthington Entertainment and Associates (“we”, “our”, or “us”), based in Abuja, Nigeria. These Terms form a legally binding agreement between you and us. If you do not agree with any part of these Terms, you must discontinue use of the Platform immediately.
+            Quest is operated by Marthington Entertainment and Associates (“we”, “our”, or “us”), based in Abuja, Nigeria. These Terms form a legally binding agreement between you and us. If you do not agree with any part of these Terms, you must discontinue use of the Platform immediately.
           </p>
 
           <h2>2. Eligibility</h2>
           <p>
-            You must be at least 18 years old to register as a contestant or submit payment information. Parents, guardians, or legal representatives may register a child on their behalf. You represent that all information you submit is accurate, complete, and lawful.
+            You must be at least 18 years old to submit an entry or provide payment information. A parent, guardian, or legal representative may enter a child in a competition that permits child entries. Competition-specific eligibility requirements apply, and you represent that all information you submit is accurate, complete, and lawful.
           </p>
 
           <h2>3. Account and Registration</h2>
           <p>
-            Registration requires the submission of personal and contestant details, including photographs, contact information, and payment information where applicable. You are responsible for keeping your account information accurate and secure. We reserve the right to reject, remove, suspend, or deny any registration that violates these Terms or harms the integrity of the competition.
+            Entry registration may require personal and contestant details, including photographs, contact information, and payment information where applicable. You are responsible for keeping the information you submit accurate and secure. We reserve the right to reject, remove, suspend, or deny any registration that violates these Terms or harms the integrity of a competition.
           </p>
 
           <h2>4. Contest Rules</h2>
           <p>
-            Entries must be lawful, original, and respectful. You may not submit content that infringes on third-party rights, includes explicit, abusive, or discriminatory material, or contains false statements. By submitting an entry, you grant us the right to display, publish, promote, and reproduce the submitted image and accompanying information for marketing, publicity, archival, and administrative purposes related to the competition.
+            Entries must follow the rules of the relevant competition and be lawful, original, and respectful. You may not submit content that infringes on third-party rights, includes explicit, abusive, or discriminatory material, or contains false statements. By submitting an entry, you grant us the right to display, publish, promote, and reproduce the submitted image and accompanying information for marketing, publicity, archival, and administrative purposes related to that competition.
           </p>
 
           <h2>5. Payments and Fees</h2>
           <p>
-            Entry fees, where applicable, are payable through approved payment channels and may be subject to processing charges, taxes, or banking fees. All amounts are stated in Nigerian Naira unless otherwise indicated. We do not guarantee refunds except where required by law, a payment error occurs, or a booking is cancelled by us under applicable circumstances. Once a payment is confirmed, the entry is deemed accepted subject to our review and approval process.
+            Entry or voting fees, where applicable, are payable through approved payment channels and may be subject to processing charges, taxes, or banking fees. Fees and currency may vary by competition; amounts are stated in Nigerian Naira unless otherwise indicated. We do not guarantee refunds except where required by law, a payment error occurs, or a competition is cancelled by us under applicable circumstances. Payment confirmation does not guarantee that an entry will be approved.
           </p>
 
           <h2>6. Voting and Conduct</h2>

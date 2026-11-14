@@ -26,15 +26,15 @@ export default function HomePage() {
     <main className="landing-page">
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">Competition season is here</span>
-          <h1>Marthington Baby Quest — celebrate the cutest moments</h1>
+          <span className="eyebrow">Welcome to Quest</span>
+          <h1>Every competition deserves a moment in the spotlight.</h1>
           <p>
-            Join parents and fans in a joyful photo contest. Register a contestant, share their story, and let the community vote for the cutest entries.
+            Discover competitions, meet the contestants, and support your favorites with a vote. Marthington Baby Quest is currently featured on Quest.
           </p>
 
           <div className="hero-cta">
-            <a className="btn-primary" href="/register">Register a baby</a>
-            <a className="btn-secondary" href="/vote">Browse & vote</a>
+            <a className="btn-primary" href="/vote">Explore competitions</a>
+            <a className="btn-secondary" href="/register">Enter Baby Quest</a>
           </div>
 
           <div style={{ marginTop: 18 }}>
@@ -44,20 +44,20 @@ export default function HomePage() {
 
         <aside className="hero-panel card">
           <div style={{ display: 'grid', gap: 12 }}>
-            <h2>Why people love this</h2>
+            <h2>Featured competition: Marthington Baby Quest</h2>
             <ul className="feature-list" style={{ paddingLeft: 18, margin: 0 }}>
-              <li>Simple registration with photo upload and shareable links</li>
-              <li>Secure vote processing and transparent leaderboard</li>
-              <li>Admin tools kept private and protected for organizers</li>
+              <li>Celebrate young contestants and share their stories</li>
+              <li>Support your favorites with online voting</li>
+              <li>Follow the competition leaderboard</li>
             </ul>
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <div className="card" style={{ padding: 12, flex: 1 }}>
-                <strong>Fast setup</strong>
-                <div className="muted">Ready in minutes for your event</div>
+                <strong>Discover</strong>
+                <div className="muted">Find a competition to follow</div>
               </div>
               <div className="card" style={{ padding: 12, flex: 1 }}>
-                <strong>Mobile-friendly</strong>
-                <div className="muted">Easy voting on phones</div>
+                <strong>Vote online</strong>
+                <div className="muted">Support your favorites on any device</div>
               </div>
             </div>
           </div>
@@ -78,12 +78,12 @@ export default function HomePage() {
 
       <section style={{ display: 'grid', gap: 18, gridTemplateColumns: '1fr 1fr' }}>
         <a href="/register" className="card link-card">
-          <h3>Register</h3>
-          <p>Upload a photo, add details, and complete entry with checkout.</p>
+          <h3>Enter Marthington Baby Quest</h3>
+          <p>Register a young contestant and share their story in our featured competition.</p>
         </a>
         <a href="/vote" className="card link-card">
-          <h3>Vote</h3>
-          <p>Support your favorites and help them climb the leaderboard.</p>
+          <h3>Explore and vote</h3>
+          <p>Browse contestants in Marthington Baby Quest and support your favorites.</p>
         </a>
       </section>
 
