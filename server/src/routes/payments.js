@@ -110,12 +110,16 @@ router.post('/flutterwave/initialize', async (req, res) => {
 
   const reference = tx_ref || `mq_${Date.now()}`;
   const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
-  let entryRedirectUrl = `${clientUrl}/register?status=success&tx_ref=${encodeURIComponent(reference)}`;
+  let paymentRedirectUrl = `${clientUrl}/register?status=success&tx_ref=${encodeURIComponent(reference)}`;
+
+  if (payment_type === 'vote') {
+    paymentRedirectUrl = `${clientUrl}/vote?status=success&tx_ref=${encodeURIComponent(reference)}`;
+  }
 
   if (payment_type === 'entry' && meta.contestantId) {
     const contestant = await Contestant.findById(meta.contestantId);
     if (contestant?.shareUrl) {
-      entryRedirectUrl = `${contestant.shareUrl}?status=paid&tx_ref=${encodeURIComponent(reference)}`;
+      paymentRedirectUrl = `${contestant.shareUrl}?status=paid&tx_ref=${encodeURIComponent(reference)}`;
     }
   }
 
@@ -131,7 +135,7 @@ router.post('/flutterwave/initialize', async (req, res) => {
       tx_ref: reference,
       amount: String(amount),
       currency,
-      redirect_url: redirect_url || entryRedirectUrl,
+      redirect_url: redirect_url || paymentRedirectUrl,
       customer: { email: customer_email },
       customizations: {
         title: 'Marthington Quest Voting',
@@ -182,19 +186,24 @@ router.post('/flutterwave/initialize', async (req, res) => {
 });
 
 // Webhook endpoint for Flutterwave
-router.post('/flutterwave/webhook', express.raw({ type: '*/*' }), async (req, res) => {
+router.post('/flutterwave/webhook', async (req, res) => {
   try {
     const signatureHeader = req.headers['verif-hash'] || req.headers['verifhash'] || '';
-    const rawBody = req.body instanceof Buffer ? req.body : Buffer.from('');
+    const rawBody = req.rawBody;
+    if (!rawBody?.length) {
+      return res.status(400).json({ message: 'Webhook request body is missing' });
+    }
+
     const payload = JSON.parse(rawBody.toString('utf-8'));
 
     if (process.env.FLW_SECRET_HASH) {
-      const expectedSignature = crypto
-        .createHmac('sha256', process.env.FLW_SECRET_HASH)
-        .update(rawBody)
-        .digest('hex');
+      const receivedSignature = Buffer.from(String(signatureHeader));
+      const expectedSignature = Buffer.from(process.env.FLW_SECRET_HASH);
 
-      if (!signatureHeader || signatureHeader !== expectedSignature) {
+      if (
+        receivedSignature.length !== expectedSignature.length ||
+        !crypto.timingSafeEqual(receivedSignature, expectedSignature)
+      ) {
         return res.status(403).json({ message: 'Invalid webhook signature' });
       }
     } else {
